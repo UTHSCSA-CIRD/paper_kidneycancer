@@ -2,3 +2,4 @@
 #' resulted after you ran `git clone git@github.com:UTHSCSA-CIRD/paper_kidneycancer`
 #' Here is mine...
 workdir <- '/tmp/paper_kidneycancer/';
+inputdata <- 'C:\\Users\\YourName\\Downloads\\kidney_v00.csv';

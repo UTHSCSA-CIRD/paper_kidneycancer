@@ -1,71 +1,48 @@
 #' ---
-#' title: "Falls Among Older Women in Primary Care"
-#' author: "Alex F. Bokov"
-#' date: "05/09/2017"
-#' output: html_document
+#' title: "Kidney Cancer"
+#' author: "Guerra, Bokov, Wilson"
+#' date: "07/10/2017"
 #' ---
 #' 
 #' ## Load libraries
-require(survival); library(magrittr); require("dplyr");
+require(survival); require(magrittr); require("dplyr");
 require('data.table'); require("ggplot2"); require('MASS'); 
 require('Hmisc'); require('readr');
+#' ## Load local config file
+source('./config.R');
+#'
 #' ...and local functions...
 source('functions.R');
+#'
 #' ## Set variables, 1st pass
 session <- 'session.rdata';
-inputdata <- 'falls.csv'; datadict <- 'df_dynsql.csv';
+#' The rebuild vector is going to c
 rebuild <- c();
-if(file.exists(session)) load(session);
-if(!exists('dd')) {
-  rebuild <- c(rebuild,'dd');
-  dd <- read_csv(datadict,na='');
-}
-cols2drop <- c('start_date','birth_date','sex_cd','v063_VTMN_D_info');
+#cols2drop <- c('start_date','birth_date','sex_cd','v063_VTMN_D_info');
 #' We are going to delete the inactive diagnoses for now, under the following 
 #' reasoning: if the diagnosis is historical, it isn't a dynamic reflection of
 #' the patient's state. If it is deleted or resolved, then it won't persist in
 #' future visits anyway. Leaving the fall codes in for now, though, pending a 
 #' closer look....
-cols2drop <- c(cols2drop,
-               subset(dd,rule='diag')$colname %>% 
-                 grep('_inactive',.,val=T) %>% 
-                 grep('_trpng_stmblng_|_ACCDNTL_FLLS_',.,inv=T,val=T));
-demcols <- c('patient_num','race_cd','language_cd','age_at_visit_days')
+# cols2drop <- c(cols2drop,
+#                subset(dd,rule='diag')$colname %>% 
+#                  grep('_inactive',.,val=T) %>% 
+#                  grep('_trpng_stmblng_|_ACCDNTL_FLLS_',.,inv=T,val=T));
+demcols <- c('patient_num','race_cd','language_cd','age_at_visit_days');
 #' ## Load data
 if(session %in% list.files()) load(session);
-if(!exists('d0')) {
-  rebuild <- c(rebuild,'d0');
-  d0 <- read_csv(inputdata,na='');
-}
 #' Is the data already arranged in order of increasing patient_num and age? The
 #' when uncommented, following code should return TRUE if it is (and it does)
 # all.equal(d0,arrange(d0,patient_num,age_at_visit_days))
 #' ## Set variables, 2nd pass
-demcols <- c(demcols,subset(dd,rule=='ethnicity')$colname);
-syn_diag_active <- list(
-  c('v065_trpng_stmblng','v041_ACCDNTL_FLLS'),
-  c('v048_rsprtr_unspcfd','v014_rsprtr_unspcfd'),
-  c('v049_Act_brnchts','v015_brnchts_brnchlts','v016_Act_brnchts'),
-  c('v030_invlvng_rsprtr','v031_Cgh'),
-  c('v050_Vsmtr_rhnts','v017_rhnts_unspcfd'),
-  c('v039_lprtn_lpdms','v002_Dsrdrs_mtblsm'),
-  c('v051_Gstr_esphgl','v018_Dss_esphgs','v019_dsrdrs_esphgs'),
-  c('v054_dsrdrs_urnr','v022_infctn_spcfd'),
-  c('v059_R_Plr','v033_Smptms_invlvng'),
-  c('v052_Dvrtclr_intstn','v020_Dvrtcl_cln'),
-  c('v057_invlvng_dgstv','v032_invlvng_dgstv'),
-  c('v053_K_Cnstptn','v021_Cnstptn'),
-  c('v040_elctrlt_acd_bs','v003_elctrlt_acd_bs'),
-  c('v043_Unspcfd_dmnt','v005_Dmnt_unspcfd'),
-  c('v046_Alzhmr_s_ds','v009_Alzhmr_s_ds','v008_crbrl_dgnrtns'),
-  c('v062_Smptms_cncrng','v026_mtblsm_dvlpmnt','v027_Abnrml_undrwght'),
-  c('v047_G_Slp_dsrdrs','v024_Slp_dstrbncs'),
-  c('v044_dprsv_dsrdr','v007_Dprsv_clsfd'),
-  c('v045_anxt_dsrdrs','v006_dsctv_smtfrm'),
-  c('v038_Vtmn_dfcnc','v001_Vtmn_dfcnc'),
-  c('v037_Dfcnc_vtmns','v000_Ddim(subset(d2,ncode>0|v055_Ofc_Vst))fcnc_cmpnts'),
-  c('v061_Mls_and_ftg','v025_Mls_and_ftg')
-);
+#demcols <- c(demcols,subset(dd,rule=='ethnicity')$colname);
+# syn_diag_active <- list(
+#   c('v065_trpng_stmblng','v041_ACCDNTL_FLLS'),
+#   c('v048_rsprtr_unspcfd','v014_rsprtr_unspcfd'),
+#   c('v061_Mls_and_ftg','v025_Mls_and_ftg')
+# );
+#' ## Read the input file
+d0 <- read_csv(inputdata,na='');
 #' ## Clean up data
 if('d0' %in% rebuild) {
   # Remove impossible START_DATEs (2 of them)
