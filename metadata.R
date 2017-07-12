@@ -5,8 +5,14 @@
 #' ---
 #' ## Non-analytic columns
 #' ### Search term
-nonan_grep <- '_date$|_info$|_unit$|_inactive$';
-#' ## Classes of variables
+class_nonan_tailgreps <- c('_date$','_info$','_unit$','_inactive$');
+#' For the time being, do not treat these columns as analytic variables
+class_complex_tailgreps <-c(
+  '_Tbc_Usg$' # not a simple T/F, the binary indicator must be extracted from it
+  ,'_Prvdr_Speclt$' # needs to be translated to human readable levels, also there
+                    # are many of them, needs exploration
+);
+#' ## Classes of analytic columns
 #' 
 #' We will use the `item_` prefix to indicate matches for 
 #' individual columns. The `_grep` suffix indicates that it
@@ -56,6 +62,11 @@ class_drugs_tailgreps <-c(
   ,'_ANTNPLSTC_OTHR$','_NRVS_MDCTNS$','_CN_ANLGSCS$'
   ,'_OPD_ANLGSCS$','_GSTRNTSTNL$','_G_LXTVS$'
   ,'_LXTVS_OTHR$','_HRMNS_SNTHTCS_MDFRS$');
-#' TODO: 
-#' * Columns to turn into binary values.
-#' * Columns to turn into nominal values.
+#' ## Factors and indicators
+#' 
+#' Columns that should have a YES/NO value (i.e. may directly be used in a model)
+class_yesno_tailgreps <- c(class_drugs_tailgreps,class_diag_tailgreps)
+#' Columns that should have a T/F values (i.e. used for logical operations)
+class_tf_tailgreps <- c(class_vital_grep,class_hisp_grep);
+#' Columns that should have multiple nomanal levels (and may need re-binning)
+class_mult_exact <- c('language_cd','race_cd');

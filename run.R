@@ -43,10 +43,35 @@ if('d0' %in% rebuild) {
   # Remove impossible START_DATEs
   d0 <- subset(d0,age_at_visit_days > 0);
 }
-#' After the metadata.R TODO done...
-#' TODO:
-#' * Convert appropriate columns to binary and nominal factors
-#' * Create a composite hispanic column from the three current ones
+#' ## Convert columns
+#' 
+#' Create copy of original dataset
+d1 <- d0;
+#' Obtain the actual column names for the Yes/No columns in this dataset
+class_yesno_tailgreps %>% paste0(collapse='|') %>% 
+  grep(names(d0),val=T) -> class_yesno_exact;
+#' Convert those columns to Yes/No values
+d1[,class_yesno_exact] <- sapply(d1[,class_yesno_exact]
+                                 ,function(xx) 
+                                   factor(is.na(xx)
+                                          ,levels = c(F,T)
+                                          ,labels = c('Yes','No'))
+                                 ,simplify = F);
+#' Repeat for the T/F columns in this dataset
+class_tf_tailgreps %>% paste0(collapse='|') %>% 
+  grep(names(d0),val=T) -> class_tf_exact;
+d1[,class_tf_exact] <- sapply(d1[,class_tf_exact],function(xx) !is.na(xx),simplify = F);
+#' Create a composite Hispanic column, `a_` prefix to signify 'analysis', the stage
+#' during which this column gets created
+d1$a_hispanic <- d1$v020_Hspnc_or_Ltn | d1$language_cd=='spanish';
+#' 
+#' ## Scrap for later:
+#' 
+#' Finding valueflags for labs
+# grep('\'vf\':\\[\'[LH]\'\\]',d0$v029_Prt_SrPl_mCnc_2885_2_info,val=T) %>% grepl('\'L\'',.) %>% ifelse(-1,1) %>% head
+#'
+#' ## TODO:
+#' 
 #' * Extract VF's for lab values and create flag columns
 #' * Create cancer and metastasis indicators (after re-running data-pull)
 #' * Weed out patients who start out with an inactive cancer diag
