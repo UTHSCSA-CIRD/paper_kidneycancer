@@ -69,9 +69,9 @@ d1$a_hispanic <- d1$v020_Hspnc_or_Ltn | d1$language_cd=='spanish';
 #' 
 #' Finding valueflags for labs
 # grep('\'vf\':\\[\'[LH]\'\\]',d0$v029_Prt_SrPl_mCnc_2885_2_info,val=T) %>% grepl('\'L\'',.) %>% ifelse(-1,1) %>% head
+#' Looks like in this dataset the L and H vf's really are mutually exclusive on a per-visit basis
 #'
 #' ## TODO:
-#' 
 #' * Extract VF's for lab values and create flag columns
 #' * Create cancer and metastasis indicators (after re-running data-pull)
 #' * Weed out patients who start out with an inactive cancer diag
