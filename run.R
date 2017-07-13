@@ -1,5 +1,5 @@
 #' ---
-#' title: "Kidney Cancer"
+#' title: "Kidney Cancer Main Analysis"
 #' author: "Guerra, Bokov, Wilson"
 #' date: "07/10/2017"
 #' ---
