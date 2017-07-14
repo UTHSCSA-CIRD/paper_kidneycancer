@@ -5,8 +5,7 @@
 #' ---
 #' 
 #' ## Load libraries
-require(survival); require(magrittr); require("dplyr");
-require('data.table'); require("ggplot2"); require('MASS'); 
+require(survival); require(dtplyr); require(magrittr); require("ggplot2"); require('MASS'); 
 require('Hmisc'); require('readr');
 #' ## Load local config file
 source('./config.R');
