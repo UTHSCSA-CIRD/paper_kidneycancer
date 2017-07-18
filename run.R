@@ -73,11 +73,13 @@ d1[,class_demog_exact] <- d1[,class_demog_exact] %>%
 #' ## Scrap for later:
 #' 
 #' Finding valueflags for labs
-# grep('\'vf\':\\[\'[LH]\'\\]',d0$v029_Prt_SrPl_mCnc_2885_2_info,val=T) %>% grepl('\'L\'',.) %>% ifelse(-1,1) %>% head
+# grep('\'vf\':\\[\'[LH]\'\\]',d0$v029_Prt_SrPl_mCnc_2885_2_info,val=T) %>% 
+# grepl('\'L\'',.) %>% ifelse(-1,1) %>% head
 #' Looks like in this dataset the L and H vf's really are mutually exclusive on a per-visit basis
 #'
 #' ## TODO:
-#' * Extract VF's for lab values and create flag columns
+#  Extract VF's for lab values and create flag columns
+#' ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% factor(levels=c("'vf':['H']","'vf':['L']","NONE"),labels= c("High","Low", "Normal")) 
 #' Create cancer and metastasis indicators (after re-running data-pull)
 d1$a_metastasis <- d1[,class_diag_outcome_exact] %>% apply(1,any);
 #' Create a copy of whatever the starting diagnosis column is called in
@@ -120,3 +122,5 @@ d2 <- group_by(d2,patient_num) %>%
 #' ## Univariate models
 #d3 <- subset(d2,npred>0|v055_Ofc_Vst|v056_Prcdr|cens>0);
 #' The `patient_num`s of the patients who had an event, for later use in validation
+
+
