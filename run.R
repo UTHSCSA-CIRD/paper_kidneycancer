@@ -28,7 +28,6 @@ rebuild <- c();
 #                subset(dd,rule='diag')$colname %>% 
 #                  grep('_inactive',.,val=T) %>% 
 #                  grep('_trpng_stmblng_|_ACCDNTL_FLLS_',.,inv=T,val=T));
-demcols <- c('patient_num','race_cd','language_cd','age_at_visit_days');
 #' ## Load data
 if(session %in% list.files()) load(session);
 #' Is the data already arranged in order of increasing patient_num and age? The
@@ -49,20 +48,27 @@ d1 <- d0;
 #' Obtain the actual column names for the Yes/No columns in this dataset
 class_yesno_tailgreps %>% paste0(collapse='|') %>% 
   grep(names(d0),val=T) -> class_yesno_exact;
+#' Name of the variable marking the entry into our retrospective cohort
+#' (i.e. in this case kidney cancer diagnosis)
+item_starting_exact <- grep(item_starting_grep,names(d0),value = T);
 #' Convert those columns to Yes/No values
 d1[,class_yesno_exact] <- sapply(d1[,class_yesno_exact]
-                                 ,function(xx) 
+                                 ,function(xx){
                                    factor(is.na(xx)
                                           ,levels = c(F,T)
-                                          ,labels = c('Yes','No'))
+                                          ,labels = c('Yes','No'))}
                                  ,simplify = F);
 #' Repeat for the T/F columns in this dataset
 class_tf_tailgreps %>% paste0(collapse='|') %>% 
   grep(names(d0),val=T) -> class_tf_exact;
 d1[,class_tf_exact] <- sapply(d1[,class_tf_exact],function(xx) !is.na(xx),simplify = F);
+#' Create nominal values, binning the small groups into `other` using `cl_bintail()`
+#' ...all as one command!
+d1[,class_demog_exact] <- d1[,class_demog_exact] %>% 
+  sapply(function(xx) cl_bintail(xx,topn=2),simplify=F);
 #' Create a composite Hispanic column, `a_` prefix to signify 'analysis', the stage
 #' during which this column gets created
-d1$a_hispanic <- d1$v020_Hspnc_or_Ltn | d1$language_cd=='spanish';
+# d1$a_hispanic <- d1$v020_Hspnc_or_Ltn | d1$language_cd=='spanish';
 #' 
 #' ## Scrap for later:
 #' 
@@ -72,23 +78,25 @@ d1$a_hispanic <- d1$v020_Hspnc_or_Ltn | d1$language_cd=='spanish';
 #'
 #' ## TODO:
 #' * Extract VF's for lab values and create flag columns
-#' * Create cancer and metastasis indicators (after re-running data-pull)
-#' * Weed out patients who start out with an inactive cancer diag
-#' * Create (in metadata.R) a list of predictor variables
+#' Create cancer and metastasis indicators (after re-running data-pull)
+d1$a_metastasis <- d1[,class_diag_outcome_exact] %>% apply(1,any);
+#' Create a copy of whatever the starting diagnosis column is called in
+#' the current dataset, but this copy will always have the same name
+d1$a_stdx <- d1[[item_starting_exact]];
 #' * Look at fraction of patients covered by each variable
-# create the event indicators
-# group_by(d0,patient_num) %>% 
-#   mutate(tt=age_at_visit_days
-#          ,which_event=cumsum(v065_trpng_stmblng)
-#          ,cens=lead(which_event)
-#          ,first=c(1,rep_len(0,length(tt)-1))
-#          ,last=c(rep_len(0,length(tt)-1),1)
-#          # preserving for each individual their age at first visit
-#          ,agestart=min(age_at_visit_days)) -> d1; # 100072 x 56
-# d1 = dataset with cumulative counts and censoring indicators for all falls
-# d2 = dataset with observations _prior_ to the first event only (or where no
-# events have occurred)
-# d2 <- subset(d1,which_event==0);  # 87110 x 56
+#' * Weed out patients who start out with an inactive cancer diag
+unique(subset(d1,a_stdx=='Yes')$patient_num) -> pat_with_diag;
+d2 <- subset(d1,patient_num%in%pat_with_diag);
+#' * create the event indicators
+d2 <- group_by(d2,patient_num) %>% 
+  mutate(a_stdx1st = a_stdx=="Yes" & !duplicated(a_stdx=="Yes")
+         ,a_metastasis1st = a_metastasis & !duplicated(a_metastasis)
+         ,a_stdx_started = cumsum(a_stdx1st)
+         ,a_cens_1 = lead(a_metastasis1st,1,default=0)
+         ,a_age_at_stdx = age_at_visit_days[which(a_stdx1st)]
+         ,a_dxage = age_at_visit_days - a_age_at_stdx
+         ,a_metastasis_started = cumsum(a_metastasis1st));
+# plot(survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),foo),xlim=c(0,4000),col=c('red','blue'))
 # subset(summarise(d2
 #                  ,v065in=min(which(v065_trpng_stmblng_inactive))
 #                  ,v041in=min(which(v041_ACCDNTL_FLLS_inactive))

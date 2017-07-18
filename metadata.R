@@ -9,6 +9,7 @@ class_nonan_tailgreps <- c('_date$','_info$','_unit$','_inactive$');
 #' For the time being, do not treat these columns as analytic variables
 class_complex_tailgreps <-c(
   '_Tbc_Usg$' # not a simple T/F, the binary indicator must be extracted from it
+  ,'_Hstr_Dgns'
   ,'_Prvdr_Speclt$' # needs to be translated to human readable levels, also there
                     # are many of them, needs exploration
 );
@@ -26,15 +27,23 @@ item_spec_grep <- '_Prvdr_Spclt$';
 #' one version of the dataset to another (if you're using 
 #' DataFinisher which this project is).
 class_demog_exact <-c('sex_cd','language_cd','race_cd');
+demcols <- c('patient_num','race_cd','language_cd','age_at_visit_days');
+
 #' Living vs deceased
-class_vital_grep <- c('_Dcsd_pr_SS$');
+class_vital_grep <- c('_Dcsd_pr_SS$',"_Vtl_Sts$");
 #' Tobacco usage
 class_tobac_grep <- c('_Tbc_Usg$');
 class_hisp_grep <- c('_Hspnc_or_Ltn$|_Spnsh$');
 #' The `_tailgreps` suffix indicates that it is a vector of
 #' regexps that can be combined into one regexp using 
 #' `paste0(FOO,collapse='|')`
-class_diag_tailgreps <- c('_elswhr_clsfd$','_Mls_and_ftg$');
+class_diag_tailgreps <- c('_elswhr_clsfd$','_Mls_and_ftg$'
+                          ,"_Mlgnt_nplsm$");
+#' Occurrence of malignant neoplasia using regex 
+item_starting_grep <- "_Mlgnt_nplsm$";
+class_diag_outcome_grep <-c("_Scndr_nrndcrn$","_mlgnt_unspcfd$"
+, "_rsprtr_dgstv$","_unspcfd_mlgnt$");
+
 class_vitals_tailgreps <- c(
   '_Bd_Ms_Indx_num$','_Tmprtr_F_num$'
   ,'_Sstlc_Prsr_num$','_Dstlc_Prsr_num$'
@@ -67,6 +76,6 @@ class_drugs_tailgreps <-c(
 #' Columns that should have a YES/NO value (i.e. may directly be used in a model)
 class_yesno_tailgreps <- c(class_drugs_tailgreps,class_diag_tailgreps)
 #' Columns that should have a T/F values (i.e. used for logical operations)
-class_tf_tailgreps <- c(class_vital_grep,class_hisp_grep);
+class_tf_tailgreps <- c(class_vital_grep,class_hisp_grep,class_diag_outcome_grep);
 #' Columns that should have multiple nomanal levels (and may need re-binning)
 class_mult_exact <- c('language_cd','race_cd');
