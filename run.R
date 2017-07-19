@@ -6,7 +6,7 @@
 #' 
 #' ## Load libraries
 require(survival); require(dtplyr); require(magrittr); require("ggplot2"); require('MASS'); 
-require('Hmisc'); require('readr');
+require('Hmisc'); require('readr');require(dplyr)
 #' ## Load local config file
 source('./config.R');
 source('./metadata.R');
@@ -79,8 +79,25 @@ d1[,class_demog_exact] <- d1[,class_demog_exact] %>%
 #'
 #' ## TODO:
 #  Extract VF's for lab values and create flag columns
-#' ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% factor(levels=c("'vf':['H']","'vf':['L']","NONE"),labels= c("High","Low", "Normal")) 
+# ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% factor(levels=c("'vf':['H']","'vf':['L']","NONE"),labels= c("High","Low", "Normal"))
+#' New code for sapply lab values
+#' Preliminary step 
+  class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%  
+  grep(names(d1), value=T)-> class_lab_info_flags_exact;
+  
+
+d1 <-sapply(d1[ ,class_lab_info_flags_exact], function(xx){
+  ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% 
+    factor(levels=c("'vf':['H']","'vf':['L']","NONE"),labels= c("High","Low", "None"))
+  }) %>% data.frame() %>% 
+  setNames(gsub('_info','_vf',class_lab_info_flags_exact)) %>% cbind(d1,.)
+
+
 #' Create cancer and metastasis indicators (after re-running data-pull)
+# Changing them to column names
+class_diag_outcome_exact <- class_diag_outcome_grep  %>% paste0(collapse = "|") %>%  
+grep(names(d1), value=T)
+
 d1$a_metastasis <- d1[,class_diag_outcome_exact] %>% apply(1,any);
 #' Create a copy of whatever the starting diagnosis column is called in
 #' the current dataset, but this copy will always have the same name
@@ -91,25 +108,14 @@ unique(subset(d1,a_stdx=='Yes')$patient_num) -> pat_with_diag;
 d2 <- subset(d1,patient_num%in%pat_with_diag);
 #' * create the event indicators
 d2 <- group_by(d2,patient_num) %>% 
-  mutate(a_stdx1st = a_stdx=="Yes" & !duplicated(a_stdx=="Yes")
-         ,a_metastasis1st = a_metastasis & !duplicated(a_metastasis)
-         ,a_stdx_started = cumsum(a_stdx1st)
-         ,a_cens_1 = lead(a_metastasis1st,1,default=0)
-         ,a_age_at_stdx = age_at_visit_days[which(a_stdx1st)]
-         ,a_dxage = age_at_visit_days - a_age_at_stdx
-         ,a_metastasis_started = cumsum(a_metastasis1st));
-# plot(survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),foo),xlim=c(0,4000),col=c('red','blue'))
-# subset(summarise(d2
-#                  ,v065in=min(which(v065_trpng_stmblng_inactive))
-#                  ,v041in=min(which(v041_ACCDNTL_FLLS_inactive))
-#                  ,v065=min(which(v065_trpng_stmblng)))
-#        ,v065>v065in|v065>v041in|v065==1)$patient_num -> inactive_first;
-# The following command shows the first occurrences o TRUE in the two inactive 
-# falls columns and the 'real' falls column (v065). If the first inactive dates 
-# are earlier than the first real event, those are IDs to toss because they are
-# patients who may have come in after they alread fell for the first time. Also
-# removing patients whose very first visit is in connection with a fall
-# d2 <- subset(d2,!patient_num%in%inactive_first);
+ mutate(a_stdx1st = a_stdx=="Yes" & !duplicated(a_stdx=="Yes")
+        ,a_metastasis1st = a_metastasis & !duplicated(a_metastasis)
+        ,a_stdx_started = cumsum(a_stdx1st)
+        ,a_cens_1 = lead(a_metastasis1st,1,default=0)
+        ,a_age_at_stdx = age_at_visit_days[which(a_stdx1st)]
+        ,a_dxage = age_at_visit_days - a_age_at_stdx
+        ,a_metastasis_started = cumsum(a_metastasis1st));
+subset(d2, a_dxage>0&a_metastasis_started==0)[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>% mutate(a_dxage=last(a_dxage),a_cens_1=last(a_cens_1),a_age_at_stdx=last(a_age_at_stdx)) %>% unique %>% survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% plot(xlim=c(0,4000),col=c('red','blue'))
 # to prevent individuals who only had one visit and it was not in connection
 # with a fracture from being treated as missing data
 # d2$cens <- ifelse(is.na(d2$cens),0,d2$cens)
