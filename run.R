@@ -18,16 +18,6 @@ source('./functions.R');
 session <- 'session.rdata';
 #' The rebuild vector is going to c
 rebuild <- c();
-#cols2drop <- c('start_date','birth_date','sex_cd','v063_VTMN_D_info');
-#' We are going to delete the inactive diagnoses for now, under the following 
-#' reasoning: if the diagnosis is historical, it isn't a dynamic reflection of
-#' the patient's state. If it is deleted or resolved, then it won't persist in
-#' future visits anyway. Leaving the fall codes in for now, though, pending a 
-#' closer look....
-# cols2drop <- c(cols2drop,
-#                subset(dd,rule='diag')$colname %>% 
-#                  grep('_inactive',.,val=T) %>% 
-#                  grep('_trpng_stmblng_|_ACCDNTL_FLLS_',.,inv=T,val=T));
 #' ## Load data
 if(session %in% list.files()) load(session);
 #' Is the data already arranged in order of increasing patient_num and age? The
@@ -66,31 +56,19 @@ d1[,class_tf_exact] <- sapply(d1[,class_tf_exact],function(xx) !is.na(xx),simpli
 #' ...all as one command!
 d1[,class_demog_exact] <- d1[,class_demog_exact] %>% 
   sapply(function(xx) cl_bintail(xx,topn=2),simplify=F);
-#' Create a composite Hispanic column, `a_` prefix to signify 'analysis', the stage
-#' during which this column gets created
-# d1$a_hispanic <- d1$v020_Hspnc_or_Ltn | d1$language_cd=='spanish';
-#' 
-#' ## Scrap for later:
-#' 
-#' Finding valueflags for labs
-# grep('\'vf\':\\[\'[LH]\'\\]',d0$v029_Prt_SrPl_mCnc_2885_2_info,val=T) %>% 
-# grepl('\'L\'',.) %>% ifelse(-1,1) %>% head
-#' Looks like in this dataset the L and H vf's really are mutually exclusive on a per-visit basis
-#'
-#' ## TODO:
-#  Extract VF's for lab values and create flag columns
-# ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% factor(levels=c("'vf':['H']","'vf':['L']","NONE"),labels= c("High","Low", "Normal"))
+#' ## Extract VF's for lab values and create flag columns
 #' New code for sapply lab values
-#' Preliminary step 
-  class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%  
-  grep(names(d1), value=T)-> class_lab_info_flags_exact;
-  
+#' Preliminary step -- exact names of columns containing full lab info
+class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%
+  grep(names(d1), value=T)-> class_lab_info_exact;
+#' Exact names of columns containing the value flags only
+class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);  
 
-d1 <-sapply(d1[ ,class_lab_info_flags_exact], function(xx){
+d1 <-sapply(d1[ ,class_lab_info_exact], function(xx){
   ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% 
-    factor(levels=c("'vf':['H']","'vf':['L']","NONE"),labels= c("High","Low", "None"))
+    factor(levels=c("NONE","'vf':['L']","'vf':['H']"),labels= c("None","Low","High"))
   }) %>% data.frame() %>% 
-  setNames(gsub('_info','_vf',class_lab_info_flags_exact)) %>% cbind(d1,.)
+  setNames(class_lab_vf_exact) %>% cbind(d1,.);
 
 
 #' Create cancer and metastasis indicators (after re-running data-pull)
@@ -99,6 +77,12 @@ class_diag_outcome_exact <- class_diag_outcome_grep  %>% paste0(collapse = "|") 
 grep(names(d1), value=T)
 
 d1$a_metastasis <- d1[,class_diag_outcome_exact] %>% apply(1,any);
+#' # TODO: create a metastasis OR deceased indicator, the trick is we need to use
+#' one of the grep patterns, not hardcode. Never hardcode.
+#' 
+#' # TODO: double-check that patients patients for whom an inactive entry 
+#' (for KC or any meta) occurs before the first active KC diagnosis get eliminated
+#' 
 #' Create a copy of whatever the starting diagnosis column is called in
 #' the current dataset, but this copy will always have the same name
 d1$a_stdx <- d1[[item_starting_exact]];
@@ -106,7 +90,7 @@ d1$a_stdx <- d1[[item_starting_exact]];
 #' * Weed out patients who start out with an inactive cancer diag
 unique(subset(d1,a_stdx=='Yes')$patient_num) -> pat_with_diag;
 d2 <- subset(d1,patient_num%in%pat_with_diag);
-#' * create the event indicators
+#' Create the event indicators
 d2 <- group_by(d2,patient_num) %>% 
  mutate(a_stdx1st = a_stdx=="Yes" & !duplicated(a_stdx=="Yes")
         ,a_metastasis1st = a_metastasis & !duplicated(a_metastasis)
@@ -115,18 +99,34 @@ d2 <- group_by(d2,patient_num) %>%
         ,a_age_at_stdx = age_at_visit_days[which(a_stdx1st)]
         ,a_dxage = age_at_visit_days - a_age_at_stdx
         ,a_metastasis_started = cumsum(a_metastasis1st));
-subset(d2, a_dxage>0&a_metastasis_started==0)[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>% mutate(a_dxage=last(a_dxage),a_cens_1=last(a_cens_1),a_age_at_stdx=last(a_age_at_stdx)) %>% unique %>% survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% plot(xlim=c(0,4000),col=c('red','blue'))
-# to prevent individuals who only had one visit and it was not in connection
-# with a fracture from being treated as missing data
-# d2$cens <- ifelse(is.na(d2$cens),0,d2$cens)
-# instead, though, we'll remove them
-# d2 <- subset(d2,!is.na(cens));
+#' Dataset with only the intervals between primary diagnosis and metastasis if any
+d3 <- subset(d2, a_dxage>=0&a_metastasis_started==0);
+#' Patients who only have one visit on or after diagnosis
+summarise(d3,a=n()) %>% subset(a<2,select=patient_num) %>% 
+  unlist -> pat_single_event;
+#' Remove patients with only one visit from d3
+d3 <- subset(d3,!patient_num%in%pat_single_event);
+#' Example survival plot
+d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
+  mutate(a_dxage=last(a_dxage)
+         ,a_cens_1=last(a_cens_1)
+         ,a_age_at_stdx=last(a_age_at_stdx)) %>% 
+  unique %>% 
+  survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% 
+  plot(xlim=c(0,2000),col=c('red','blue'),mark.time=T);
+#' ## We create out univariate baseline model to update a whole bunch of times soon
+cox_univar<-coxph(Surv(a_dxage,a_cens_1)~a_age_at_stdx+cluster(patient_num),d3);
+#' Example code... AFTER you have gone over all the revisions, see if you
+#' can turn this into a non-hardcoded `sapply()` call.
+sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
+  parse(text=.) %>% eval;
+#' Hint: you don't need to understand `sprintf()` in order to do this, just look and
+#' think about what the one part of the above code should not be a static value.
+#' However, even though you don't need to understand `sprintf()` you should do
+#' `?sprintf` anyway, and do that with any function you don't understand as a
+#' general rule.
+#' 
+#' 
+#' 
 #rebuild<-c();
 #save.image(session);
-#' ## Exploration of possibly combinable variables
-#' The active diagnoses
-#' ## Univariate models
-#d3 <- subset(d2,npred>0|v055_Ofc_Vst|v056_Prcdr|cens>0);
-#' The `patient_num`s of the patients who had an event, for later use in validation
-
-
