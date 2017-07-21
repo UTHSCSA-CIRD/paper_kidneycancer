@@ -66,7 +66,7 @@ class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);
 
 d1 <-sapply(d1[ ,class_lab_info_exact], function(xx){
   ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% 
-    factor(levels=c("NONE","'vf':['L']","'vf':['H']"),labels= c("None","Low","High"))
+    factor(levels=c("NONE","'vf':['L']","'vf':['H']"),labels= c("None","Low","High")) %>% relevel(ref = 'None')
   }) %>% data.frame() %>% 
   setNames(class_lab_vf_exact) %>% cbind(d1,.);
 
@@ -92,13 +92,21 @@ unique(subset(d1,a_stdx=='Yes')$patient_num) -> pat_with_diag;
 d2 <- subset(d1,patient_num%in%pat_with_diag);
 #' Create the event indicators
 d2 <- group_by(d2,patient_num) %>% 
- mutate(a_stdx1st = a_stdx=="Yes" & !duplicated(a_stdx=="Yes")
-        ,a_metastasis1st = a_metastasis & !duplicated(a_metastasis)
-        ,a_stdx_started = cumsum(a_stdx1st)
-        ,a_cens_1 = lead(a_metastasis1st,1,default=0)
-        ,a_age_at_stdx = age_at_visit_days[which(a_stdx1st)]
-        ,a_dxage = age_at_visit_days - a_age_at_stdx
-        ,a_metastasis_started = cumsum(a_metastasis1st));
+ mutate(
+   # first KC diagnosis
+   a_stdx1st = a_stdx=="Yes" & !duplicated(a_stdx=="Yes")
+   # first metastasis diagnosis
+   ,a_metastasis1st = a_metastasis & !duplicated(a_metastasis)
+   # if this variable is 1 then this patient is in the interval occuring after first diagnosis
+   ,a_stdx_started = cumsum(a_stdx1st)
+   # whether or not this is the visit BEFORE the first metastasis diagnosis
+   ,a_cens_1 = lead(a_metastasis1st,1,default=0)
+   # age at first KC diagnosis
+   ,a_age_at_stdx = age_at_visit_days[which(a_stdx1st)]
+   # The number of days since first KC diagnosis
+   ,a_dxage = age_at_visit_days - a_age_at_stdx
+   # if this variable is 1 then this patient is in the interval occuring after first diagnosis
+   ,a_metastasis_started = cumsum(a_metastasis1st));
 #' Dataset with only the intervals between primary diagnosis and metastasis if any
 d3 <- subset(d2, a_dxage>=0&a_metastasis_started==0);
 #' Patients who only have one visit on or after diagnosis
@@ -115,7 +123,7 @@ d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
   survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% 
   plot(xlim=c(0,2000),col=c('red','blue'),mark.time=T);
 #' ## We create out univariate baseline model to update a whole bunch of times soon
-cox_univar<-coxph(Surv(a_dxage,a_cens_1)~a_age_at_stdx+cluster(patient_num),d3);
+cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
 #' Example code... AFTER you have gone over all the revisions, see if you
 #' can turn this into a non-hardcoded `sapply()` call.
 sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
