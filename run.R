@@ -128,13 +128,29 @@ cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),
 #' can turn this into a non-hardcoded `sapply()` call.
 sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
   parse(text=.) %>% eval;
+cox_ph_models<-sapply(class_lab_vf_exact, function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
+         parse(text=.) %>% eval);
+
+#Applying summary function uto the coxph models and finding their concordance, wald test, and 
+sapply(cox_ph_models,function(xx) c(summary(xx)[['concordance']], summary(xx)[['waldtest']])) %>% t -> Concordance_and_Wald_results;
+
 #' Hint: you don't need to understand `sprintf()` in order to do this, just look and
 #' think about what the one part of the above code should not be a static value.
 #' However, even though you don't need to understand `sprintf()` you should do
 #' `?sprintf` anyway, and do that with any function you don't understand as a
 #' general rule.
 #' 
+#' ## Interlude: thought process for constructing sapply statements
 #' 
+#' Let's say you have a function `foo()` that takes `xx` as a variable
+#' and you have an object `baz`, and you are wondering whether to run 
+#' `sapply(baz,foo)`. If the following doesn't work...
+# foo(baz[1])
+#' ...then `sapply(baz,foo)` will definitely not work.
+#' If you can find a `baz` for which `foo(baz[1])` does give a valid result, and
+#' so do `foo(baz[2])` and `foo(baz[3])` then the next step in testing might be
+# sapply(baz[1:3], foo)
+
 #' 
 #rebuild<-c();
 #save.image(session);
