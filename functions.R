@@ -15,3 +15,4 @@ cl_bintail <- function(xx,topn=4,binto='other'){
         xx %in% keep, as.character(xx), binto
         ),levels=c(keep,binto)));
 }
+
