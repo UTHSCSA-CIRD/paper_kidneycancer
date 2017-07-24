@@ -133,6 +133,48 @@ cox_ph_models<-sapply(class_lab_vf_exact, function(xx) sprintf('update(cox_univa
 
 #Applying summary function uto the coxph models and finding their concordance, wald test, and 
 sapply(cox_ph_models,function(xx) c(summary(xx)[['concordance']], summary(xx)[['waldtest']])) %>% t -> Concordance_and_Wald_results;
+#' ## Next Actionable Steps
+#' * TODO: Have the models not only go through the _vf columns like
+#' they do now, but also through the any column that has a Yes/No value.
+#' (hint: in metadata.R we create a vector called `class_yesno_tailgreps`
+#' that can be used in the same way as we already use `class_diag_outcome_grep`
+#' in the code above)
+#' * TODO: Now take the whole list `cox_ph_models` and mass-update all the models
+#' to remove the term `cluster(patient_num)` and add the term `frailty(patient_num)`
+#' instead. Try to get the concordance and Wald tests for those and see if they
+#' are better than the `cluster(patient_num)` versions. Warning: this might have
+#' a long runtime. Maybe you might want to split the job.
+#' 
+#' More hints:
+#' * Most of the above are variations of stuff you have already done. The names 
+#' of variables will be different, but that doesn't matter, the underlying logic 
+#' of the code will be the same or almost the same.
+#' * When you don't understand something, try breaking it up into smaller expressions
+#' running them separately, and seeing what each one does.
+#' * When you run into an error, try breaking the expression into smaller experssions
+#' running them separately, and seeing if you can isolate the error to a specific one.
+#' * The help operator, `?` is helpful (sometimes) for understanding what a function
+#' is supposed to do. The help files are organized in sections, so try to develop
+#' a feel for which section has answers to which kinds of questions you might have.
+#' * The example section of a help file is a great way to figure out what a function 
+#' does by starting with their working example and gradually substituting in your
+#' own input until the function is doing what you need it to do (or failing and 
+#' giving error messages you can copy-paste into google).
+#' * You can capture the output of an unknown function into a variable and the 
+#' following commands can help you investigate it...
+#' ** class(foo)
+#' ** names(foo)
+#' ** sapply(foo,class)
+#' ** methods(class=class(foo))
+#' ** summary(foo)
+#' ** ...and all the above for bar where bar is an element within foo
+#' that you are interested in and can be indexed either as foo[['bar']]
+#' or foo$bar (the two mean the same thing)
+#' * Strings need to be quoted, the names of objects need to not be quoted.
+
+
+#' 
+
 
 #' Hint: you don't need to understand `sprintf()` in order to do this, just look and
 #' think about what the one part of the above code should not be a static value.
