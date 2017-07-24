@@ -145,12 +145,18 @@ sapply(cox_ph_models,function(xx) c(summary(xx)[['concordance']], summary(xx)[['
 #' (hint: in metadata.R we create a vector called `class_yesno_tailgreps`
 #' that can be used in the same way as we already use `class_diag_outcome_grep`
 #' in the code above)
+#' 
+class_yesno_tailgreps %>% paste0(collapse='|') %>% 
+  grep(names(d0),val=T) -> class_yesno_exact;
+
 #' * TODO: Now take the whole list `cox_ph_models` and mass-update all the models
 #' to remove the term `cluster(patient_num)` and add the term `frailty(patient_num)`
 #' instead. Try to get the concordance and Wald tests for those and see if they
 #' are better than the `cluster(patient_num)` versions. Warning: this might have
 #' a long runtime. Maybe you might want to split the job.
-#' 
+cox_univar_yes_no<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + fraility(patient_num),d3);
+cox_ph_models_yes_no<-sapply(class_lab_vf_exact, function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
+                        parse(text=.) %>% eval);
 #' More hints:
 #' * Most of the above are variations of stuff you have already done. The names 
 #' of variables will be different, but that doesn't matter, the underlying logic 
