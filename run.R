@@ -124,6 +124,12 @@ d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
   plot(xlim=c(0,2000),col=c('red','blue'),mark.time=T);
 #' ## We create out univariate baseline model to update a whole bunch of times soon
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
+
+##Plotting the survival curve using the package "ggfortify"
+install.packages("ggfortify")
+library(ggfortify)
+survival_Curve<-d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%mutate(a_dxage=last(a_dxage) ,a_cens_1=last(a_cens_1),a_age_at_stdx=last(a_age_at_stdx)) %>% unique %>% survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.)
+autoplot(survival_Curve,)
 #' Example code... AFTER you have gone over all the revisions, see if you
 #' can turn this into a non-hardcoded `sapply()` call.
 sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
