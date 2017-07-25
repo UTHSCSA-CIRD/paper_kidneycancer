@@ -153,10 +153,19 @@ class_yesno_tailgreps %>% paste0(collapse='|') %>%
 #' to remove the term `cluster(patient_num)` and add the term `frailty(patient_num)`
 #' instead. Try to get the concordance and Wald tests for those and see if they
 #' are better than the `cluster(patient_num)` versions. Warning: this might have
-#' a long runtime. Maybe you might want to split the job.
-cox_univar_yes_no<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + fraility(patient_num),d3);
-cox_ph_models_yes_no<-sapply(class_lab_vf_exact, function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
+#' a long runtime. Maybe you might want to split the 
+
+#Cox_Univariate and Cox_Univariate_Frailty
+cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
+cox_univar_Frailty<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + frailty(patient_num),d3);
+
+#Cox_ph_models with the vfs and yes and no
+cox_ph_models_yes_no<-sapply(c(class_lab_vf_exact,class_yesno_exact), function(xx) sprintf('update(cox_univar_yes_no,.~.-a_age_at_stdx+%s)',xx) %>% 
                         parse(text=.) %>% eval);
+
+#Concordance and Wald_results Yes and No and vfs
+Concordance_and_Wald_results_Yes_and_No_and_vfs <- sapply(cox_ph_models_yes_no, function(xx) c(summary(xx)[['concordance']], summary(xx)[['waldtest']])) %>% t;
+
 #' More hints:
 #' * Most of the above are variations of stuff you have already done. The names 
 #' of variables will be different, but that doesn't matter, the underlying logic 
