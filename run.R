@@ -6,7 +6,7 @@
 #' 
 #' ## Load libraries
 require(survival); require(dtplyr); require(magrittr); require("ggplot2"); require('MASS'); 
-require('Hmisc'); require('readr');require(dplyr)
+require('Hmisc'); require('readr'); require(dplyr); require(stargazer); require(ggfortify);
 #' ## Load local config file
 source('./config.R');
 source('./metadata.R');
@@ -126,16 +126,14 @@ d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
 
 ##Plotting the survival curve using the package "ggfortify"
-install.packages("ggfortify")
-library(ggfortify)
 survival_Curve<-d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%mutate(a_dxage=last(a_dxage) ,a_cens_1=last(a_cens_1),a_age_at_stdx=last(a_age_at_stdx)) %>% unique %>% survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.)
 autoplot(survival_Curve,)
 #' Example code... AFTER you have gone over all the revisions, see if you
 #' can turn this into a non-hardcoded `sapply()` call.
-sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
-  parse(text=.) %>% eval;
-cox_ph_models<-sapply(class_lab_vf_exact, function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
-         parse(text=.) %>% eval);
+#sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
+#  parse(text=.) %>% eval;
+#cox_ph_models<-sapply(class_lab_vf_exact, function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
+#         parse(text=.) %>% eval);
 
 #Applying summary function uto the coxph models and finding their concordance, wald test, and 
 sapply(cox_ph_models,function(xx) c(summary(xx)[['concordance']], summary(xx)[['waldtest']])) %>% t -> Concordance_and_Wald_results;
@@ -157,16 +155,29 @@ class_yesno_tailgreps %>% paste0(collapse='|') %>%
 
 #Cox_Univariate and Cox_Univariate_Frailty
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
-cox_univar_Frailty<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + frailty(patient_num),d3);
+cox_univar_frailty<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + frailty(patient_num),d3);
 
 #Cox_ph_models with the vfs and yes and no
-cox_ph_models_yes_no<-sapply(c(class_lab_vf_exact,class_yesno_exact), function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
+cox_ph_models<-sapply(c(class_lab_vf_exact,class_yesno_exact)
+                      ,function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
                         parse(text=.) %>% eval);
 
 #Concordance and Wald_results Yes and No and vfs
-Concordance_and_Wald_results_Yes_and_No_and_vfs <- sapply(cox_ph_models_yes_no, function(xx) c(summary(xx)[['concordance']], summary(xx)[['waldtest']])) %>% t;
+results_con_wald_cluster <- sapply(cox_ph_models
+                                   ,function(xx) with(summary(xx),c(concordance,robscore))) %>%
+                                     t;
 
+cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(cox_ph_models$xx.~.-cluster(patient_num)+frailty(patient_num)));
+sapply(cox_ph_models,function(xx) update(cox_ph_models,.~.-cluster(patient_num)+frailty(patient_num)) 
+#Frailty results
+results_con_wald_frail <- sapply(cox_ph_models_fraility,function(xx) with(summary(xx),c(concordance,logtest))) %>% t;
+
+#' Let's try plotting out this table
+#+ results='asis'
+stargazer(Concordance_and_Wald_results_Yes_and_No_and_vfs, type="html");
+#' 
 #' More hints:
+#' 
 #' * Most of the above are variations of stuff you have already done. The names 
 #' of variables will be different, but that doesn't matter, the underlying logic 
 #' of the code will be the same or almost the same.
