@@ -6,7 +6,7 @@
 #' 
 #' ## Load libraries
 require(survival); require(dtplyr); require(magrittr); require("ggplot2"); require('MASS'); 
-require('Hmisc'); require('readr');require(dplyr)
+require('Hmisc'); require('readr'); require(dplyr); require(stargazer); require(ggfortify);
 #' ## Load local config file
 source('./config.R');
 source('./metadata.R');
@@ -66,7 +66,7 @@ class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);
 
 d1 <-sapply(d1[ ,class_lab_info_exact], function(xx){
   ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% 
-    factor(levels=c("NONE","'vf':['L']","'vf':['H']"),labels= c("None","Low","High"))
+    factor(levels=c("NONE","'vf':['L']","'vf':['H']"),labels= c("None","Low","High")) %>% relevel(ref = 'None')
   }) %>% data.frame() %>% 
   setNames(class_lab_vf_exact) %>% cbind(d1,.);
 
@@ -92,13 +92,21 @@ unique(subset(d1,a_stdx=='Yes')$patient_num) -> pat_with_diag;
 d2 <- subset(d1,patient_num%in%pat_with_diag);
 #' Create the event indicators
 d2 <- group_by(d2,patient_num) %>% 
- mutate(a_stdx1st = a_stdx=="Yes" & !duplicated(a_stdx=="Yes")
-        ,a_metastasis1st = a_metastasis & !duplicated(a_metastasis)
-        ,a_stdx_started = cumsum(a_stdx1st)
-        ,a_cens_1 = lead(a_metastasis1st,1,default=0)
-        ,a_age_at_stdx = age_at_visit_days[which(a_stdx1st)]
-        ,a_dxage = age_at_visit_days - a_age_at_stdx
-        ,a_metastasis_started = cumsum(a_metastasis1st));
+ mutate(
+   # first KC diagnosis
+   a_stdx1st = a_stdx=="Yes" & !duplicated(a_stdx=="Yes")
+   # first metastasis diagnosis
+   ,a_metastasis1st = a_metastasis & !duplicated(a_metastasis)
+   # if this variable is 1 then this patient is in the interval occuring after first diagnosis
+   ,a_stdx_started = cumsum(a_stdx1st)
+   # whether or not this is the visit BEFORE the first metastasis diagnosis
+   ,a_cens_1 = lead(a_metastasis1st,1,default=0)
+   # age at first KC diagnosis
+   ,a_age_at_stdx = age_at_visit_days[which(a_stdx1st)]
+   # The number of days since first KC diagnosis
+   ,a_dxage = age_at_visit_days - a_age_at_stdx
+   # if this variable is 1 then this patient is in the interval occuring after first diagnosis
+   ,a_metastasis_started = cumsum(a_metastasis1st));
 #' Dataset with only the intervals between primary diagnosis and metastasis if any
 d3 <- subset(d2, a_dxage>=0&a_metastasis_started==0);
 #' Patients who only have one visit on or after diagnosis
@@ -115,18 +123,108 @@ d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
   survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% 
   plot(xlim=c(0,2000),col=c('red','blue'),mark.time=T);
 #' ## We create out univariate baseline model to update a whole bunch of times soon
-cox_univar<-coxph(Surv(a_dxage,a_cens_1)~a_age_at_stdx+cluster(patient_num),d3);
+cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
+
+##Plotting the survival curve using the package "ggfortify"
+survival_Curve<-d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%mutate(a_dxage=last(a_dxage) ,a_cens_1=last(a_cens_1),a_age_at_stdx=last(a_age_at_stdx)) %>% unique %>% survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.)
+autoplot(survival_Curve,)
 #' Example code... AFTER you have gone over all the revisions, see if you
 #' can turn this into a non-hardcoded `sapply()` call.
-sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
-  parse(text=.) %>% eval;
+#sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
+#  parse(text=.) %>% eval;
+#cox_ph_models<-sapply(class_lab_vf_exact, function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
+#         parse(text=.) %>% eval);
+
+#Applying summary function uto the coxph models and finding their concordance, wald test, and 
+sapply(cox_ph_models,function(xx) c(summary(xx)[['concordance']], summary(xx)[['waldtest']])) %>% t -> Concordance_and_Wald_results;
+#' ## Next Actionable Steps
+#' * TODO: Have the models not only go through the _vf columns like
+#' they do now, but also through the any column that has a Yes/No value.
+#' (hint: in metadata.R we create a vector called `class_yesno_tailgreps`
+#' that can be used in the same way as we already use `class_diag_outcome_grep`
+#' in the code above)
+#' 
+class_yesno_tailgreps %>% paste0(collapse='|') %>% 
+  grep(names(d0),val=T) -> class_yesno_exact;
+
+#' * TODO: Now take the whole list `cox_ph_models` and mass-update all the models
+#' to remove the term `cluster(patient_num)` and add the term `frailty(patient_num)`
+#' instead. Try to get the concordance and Wald tests for those and see if they
+#' are better than the `cluster(patient_num)` versions. Warning: this might have
+#' a long runtime. Maybe you might want to split the work
+
+#Cox_Univariate and Cox_Univariate_Frailty
+cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
+cox_univar_frailty<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + frailty(patient_num),d3);
+
+#Cox_ph_models with the vfs and yes and no
+cox_ph_models<-sapply(c(class_lab_vf_exact,class_yesno_exact)
+                      ,function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
+                        parse(text=.) %>% eval);
+
+#Concordance and Wald_results Yes and No and vfs
+results_con_wald_cluster <- sapply(cox_ph_models
+                                   ,function(xx) with(summary(xx),c(concordance,robscore))) %>%
+                                     t;
+
+cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(cox_ph_models$xx.~.-cluster(patient_num)+frailty(patient_num)));
+sapply(cox_ph_models,function(xx) update(cox_ph_models,.~.-cluster(patient_num)+frailty(patient_num)) 
+#Frailty results
+results_con_wald_frail <- sapply(cox_ph_models_fraility,function(xx) with(summary(xx),c(concordance,logtest))) %>% t;
+
+#' Let's try plotting out this table
+#+ results='asis'
+stargazer(Concordance_and_Wald_results_Yes_and_No_and_vfs, type="html");
+#' 
+#' More hints:
+#' 
+#' * Most of the above are variations of stuff you have already done. The names 
+#' of variables will be different, but that doesn't matter, the underlying logic 
+#' of the code will be the same or almost the same.
+#' * When you don't understand something, try breaking it up into smaller expressions
+#' running them separately, and seeing what each one does.
+#' * When you run into an error, try breaking the expression into smaller experssions
+#' running them separately, and seeing if you can isolate the error to a specific one.
+#' * The help operator, `?` is helpful (sometimes) for understanding what a function
+#' is supposed to do. The help files are organized in sections, so try to develop
+#' a feel for which section has answers to which kinds of questions you might have.
+#' * The example section of a help file is a great way to figure out what a function 
+#' does by starting with their working example and gradually substituting in your
+#' own input until the function is doing what you need it to do (or failing and 
+#' giving error messages you can copy-paste into google).
+#' * You can capture the output of an unknown function into a variable and the 
+#' following commands can help you investigate it...
+#' ** class(foo)
+#' ** names(foo)
+#' ** sapply(foo,class)
+#' ** methods(class=class(foo))
+#' ** summary(foo)
+#' ** ...and all the above for bar where bar is an element within foo
+#' that you are interested in and can be indexed either as foo[['bar']]
+#' or foo$bar (the two mean the same thing)
+#' * Strings need to be quoted, the names of objects need to not be quoted.
+
+
+#' 
+
+
 #' Hint: you don't need to understand `sprintf()` in order to do this, just look and
 #' think about what the one part of the above code should not be a static value.
 #' However, even though you don't need to understand `sprintf()` you should do
 #' `?sprintf` anyway, and do that with any function you don't understand as a
 #' general rule.
 #' 
+#' ## Interlude: thought process for constructing sapply statements
 #' 
+#' Let's say you have a function `foo()` that takes `xx` as a variable
+#' and you have an object `baz`, and you are wondering whether to run 
+#' `sapply(baz,foo)`. If the following doesn't work...
+# foo(baz[1])
+#' ...then `sapply(baz,foo)` will definitely not work.
+#' If you can find a `baz` for which `foo(baz[1])` does give a valid result, and
+#' so do `foo(baz[2])` and `foo(baz[3])` then the next step in testing might be
+# sapply(baz[1:3], foo)
+
 #' 
 #rebuild<-c();
 #save.image(session);
