@@ -12,7 +12,8 @@ source('./config.R');
 #' ## Load data
 #' 
 #' This contains d0, which are counts by age, sex, and reference group
-load(inci_inputdata);
+#load(inci_inputdata);
+d0 <- read.csv(inci_inputdata,header = F);
 d0$agebin <- cut(d0$AGE,c(0,10*(2:7),Inf),include.lowest = T);
 #' ## First stage of tabulation
 #' 
