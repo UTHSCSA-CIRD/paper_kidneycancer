@@ -26,6 +26,7 @@ if(session %in% list.files()) load(session);
 # Current return-value is TRUE
 #' ## Read the input file
 d0 <- read_csv(inputdata,na='');
+if(file.exists(inputmeta)) m0 <- read_csv(inputmeta,na='');
 #' ## Clean up data
 if('d0' %in% rebuild) {
   # Remove impossible START_DATEs
