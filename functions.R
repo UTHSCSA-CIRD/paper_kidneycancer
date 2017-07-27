@@ -37,7 +37,8 @@ submulti <- function(xx,searchrep,method=c('partial','full','exact')){
          ,full =    {for(ii in rr)
            oo[grepl(searchrep[ii,1],oo)]<-searchrep[ii,2]}
          ,exact = {for(ii in rr)
-           oo <- gsub(searchrep[ii,1],searchrep[ii,2],oo,fixed = T)}
+           oo[grepl(searchrep[ii,1],oo,fixed=T)]<-searchrep[ii,2]}
+           #oo <- gsub(searchrep[ii,1],searchrep[ii,2],oo,fixed = T)}
          );
   oo;
 }
