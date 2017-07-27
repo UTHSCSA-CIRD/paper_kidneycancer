@@ -5,5 +5,6 @@
 workdir <- '/tmp/paper_kidneycancer/';
 #' ## Used by run.R
 inputdata <- 'C:\\Users\\YourName\\Downloads\\kidney_v00.csv';
+inputmeta <- 'C:\\Users\\YourName\\Downloads\\meta_kidney_v00.csv';
 #' ## Used by incidence tables
 inci_inputdata <- 'C:\\Users\\YourName\\Downloads\\inci_in.rdata';

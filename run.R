@@ -5,8 +5,14 @@
 #' ---
 #' 
 #' ## Load libraries
-require(survival); require(dtplyr); require(magrittr); require("ggplot2"); require('MASS'); 
-require('Hmisc'); require('readr'); require(dplyr); require(stargazer); require(ggfortify);
+rq_libs <- c('survival','MASS','Hmisc','imputeTS'  # various analysis methods
+             ,'readr','dplyr','stringr','magrittr' # data manipulation & piping
+             ,'ggplot2','ggfortify'                # plotting
+             ,'stargazer');                        # table formatting
+rq_installed <- sapply(rq_libs,require,character.only=T);
+rq_need <- names(rq_installed[!rq_installed]);
+if(length(rq_need)>0) install.packages(rq_need,repos='https://cran.rstudio.com/',dependencies = T);
+sapply(rq_need,require,character.only=T);
 #' ## Load local config file
 source('./config.R');
 source('./metadata.R');
@@ -26,6 +32,7 @@ if(session %in% list.files()) load(session);
 # Current return-value is TRUE
 #' ## Read the input file
 d0 <- read_csv(inputdata,na='');
+if(file.exists(inputmeta)) m0 <- read_csv(inputmeta,na='');
 #' ## Clean up data
 if('d0' %in% rebuild) {
   # Remove impossible START_DATEs
@@ -105,6 +112,7 @@ d2 <- group_by(d2,patient_num) %>%
    ,a_age_at_stdx = age_at_visit_days[which(a_stdx1st)]
    # The number of days since first KC diagnosis
    ,a_dxage = age_at_visit_days - a_age_at_stdx
+   ,a_dxage2 = lead(a_dxage,default=Inf)
    # if this variable is 1 then this patient is in the interval occuring after first diagnosis
    ,a_metastasis_started = cumsum(a_metastasis1st));
 #' Dataset with only the intervals between primary diagnosis and metastasis if any
@@ -132,9 +140,6 @@ autoplot(survival_Curve,)
 #' can turn this into a non-hardcoded `sapply()` call.
 #sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
 #  parse(text=.) %>% eval;
-#cox_ph_models<-sapply(class_lab_vf_exact, function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
-#         parse(text=.) %>% eval);
-
 #Applying summary function uto the coxph models and finding their concordance, wald test, and 
 sapply(cox_ph_models,function(xx) c(summary(xx)[['concordance']], summary(xx)[['waldtest']])) %>% t -> Concordance_and_Wald_results;
 #' ## Next Actionable Steps
@@ -161,12 +166,20 @@ cox_univar_frailty<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + frailty(patie
 cox_ph_models<-sapply(c(class_lab_vf_exact,class_yesno_exact)
                       ,function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
                         parse(text=.) %>% eval);
+#' I did a little more reading about coxph, and maybe the interval formulation is a
+#' way to handle time-varying covariates than cluster. So let's try this one too.
+#' 
+cox_t2_models<- lapply(cox_ph_models
+                       ,update
+                       ,Surv(a_dxage,a_dxage2,a_cens_1)~.-cluster(patient_num));
 
 #Concordance and Wald_results Yes and No and vfs
 results_con_wald_cluster <- sapply(cox_ph_models
                                    ,function(xx) with(summary(xx),c(concordance,robscore))) %>%
                                      t;
-
+#' ## TODO: JG, my own edits notwithstanding, I still need you to go through the 
+#' whole run.R file line by line and make sure all your bugs are fixed.
+#' 
 cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(cox_ph_models$xx.~.-cluster(patient_num)+frailty(patient_num)));
 sapply(cox_ph_models,function(xx) update(cox_ph_models,.~.-cluster(patient_num)+frailty(patient_num)) 
 #Frailty results
