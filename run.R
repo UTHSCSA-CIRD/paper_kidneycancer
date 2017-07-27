@@ -180,14 +180,14 @@ results_con_wald_cluster <- sapply(cox_ph_models
 #' ## TODO: JG, my own edits notwithstanding, I still need you to go through the 
 #' whole run.R file line by line and make sure all your bugs are fixed.
 #' 
-cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(cox_ph_models$xx.~.-cluster(patient_num)+frailty(patient_num)));
-sapply(cox_ph_models,function(xx) update(cox_ph_models,.~.-cluster(patient_num)+frailty(patient_num)) 
+cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(xx,.~.-cluster(patient_num)+frailty(patient_num)));
+ 
 #Frailty results
 results_con_wald_frail <- sapply(cox_ph_models_fraility,function(xx) with(summary(xx),c(concordance,logtest))) %>% t;
 
 #' Let's try plotting out this table
 #+ results='asis'
-stargazer(Concordance_and_Wald_results_Yes_and_No_and_vfs, type="html");
+stargazer(results_con_wald_frail, type="html");
 #' 
 #' More hints:
 #' 
