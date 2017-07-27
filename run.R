@@ -136,27 +136,11 @@ cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),
 ##Plotting the survival curve using the package "ggfortify"
 survival_Curve<-d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%mutate(a_dxage=last(a_dxage) ,a_cens_1=last(a_cens_1),a_age_at_stdx=last(a_age_at_stdx)) %>% unique %>% survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.)
 autoplot(survival_Curve,)
-#' Example code... AFTER you have gone over all the revisions, see if you
-#' can turn this into a non-hardcoded `sapply()` call.
-#sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
-#  parse(text=.) %>% eval;
-#Applying summary function uto the coxph models and finding their concordance, wald test, and 
-sapply(cox_ph_models,function(xx) c(summary(xx)[['concordance']], summary(xx)[['waldtest']])) %>% t -> Concordance_and_Wald_results;
-#' ## Next Actionable Steps
-#' * TODO: Have the models not only go through the _vf columns like
-#' they do now, but also through the any column that has a Yes/No value.
-#' (hint: in metadata.R we create a vector called `class_yesno_tailgreps`
-#' that can be used in the same way as we already use `class_diag_outcome_grep`
-#' in the code above)
-#' 
+
+
 class_yesno_tailgreps %>% paste0(collapse='|') %>% 
   grep(names(d0),val=T) -> class_yesno_exact;
 
-#' * TODO: Now take the whole list `cox_ph_models` and mass-update all the models
-#' to remove the term `cluster(patient_num)` and add the term `frailty(patient_num)`
-#' instead. Try to get the concordance and Wald tests for those and see if they
-#' are better than the `cluster(patient_num)` versions. Warning: this might have
-#' a long runtime. Maybe you might want to split the work
 
 #Cox_Univariate and Cox_Univariate_Frailty
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
@@ -177,17 +161,18 @@ cox_t2_models<- lapply(cox_ph_models
 results_con_wald_cluster <- sapply(cox_ph_models
                                    ,function(xx) with(summary(xx),c(concordance,robscore))) %>%
                                      t;
-#' ## TODO: JG, my own edits notwithstanding, I still need you to go through the 
-#' whole run.R file line by line and make sure all your bugs are fixed.
-#' 
+
+
 cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(xx,.~.-cluster(patient_num)+frailty(patient_num)));
  
 #Frailty results
 results_con_wald_frail <- sapply(cox_ph_models_fraility,function(xx) with(summary(xx),c(concordance,logtest))) %>% t;
 
+#New Rownames for the fraility and cluster table
+rownames(results_con_wald_frail)<-rownames(results_con_wald_cluster)<-submulti(gsub('_vf$','_num',rownames(results_con_wald_cluster)),m0[,1:2],method = 'exact')
 #' Let's try plotting out this table
 #+ results='asis'
-stargazer(results_con_wald_frail, type="html");
+stargazer(results_con_wald_frail,results_con_wald_cluster,type = 'html')
 #' 
 #' More hints:
 #' 
