@@ -64,3 +64,6 @@ sql_create_table <- function(xx,tname,sqltemplate='CREATE TABLE %s (%s);'){
   # TODO: use the above and submulti() to convert R classes to SQL data types
   # TODO: paste() and/or sprintf() to create the string that will be the output
 }
+
+#' Delete all the junk in your environment, for testing
+clearenv <- function(env=.GlobalEnv) rm(list=setdiff(ls(all=T,envir=env),'clearenv'),envir=env);

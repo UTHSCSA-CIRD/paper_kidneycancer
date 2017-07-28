@@ -50,15 +50,20 @@ class_tf_tailgreps %>% paste0(collapse='|') %>%
 #' Name of the variable marking the entry into our retrospective cohort
 #' (i.e. in this case kidney cancer diagnosis)
 item_starting_exact <- grep(item_starting_grep,names(d0),value = T);
+#' names of lab value columns and again for vitals
+class_labs_tailgreps %>% paste0(collapse = "|") %>%
+  grep(names(d0), value=T)-> class_labs_exact;
+class_vitals_tailgreps %>% paste0(collapse = "|") %>%
+  grep(names(d0), value=T)-> class_vitals_exact;
 #' Preliminary step -- exact names of columns containing full lab info
 class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%
-  grep(names(d1), value=T)-> class_lab_info_exact;
+  grep(names(d0), value=T)-> class_lab_info_exact;
 #' Exact names of columns containing the value flags only
 class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);
 #' Create cancer and metastasis indicators (after re-running data-pull)
 # Changing them to column names
 class_diag_outcome_exact <- class_diag_outcome_grep  %>% paste0(collapse = "|") %>%  
-  grep(names(d1), value=T);
+  grep(names(d0), value=T);
 class_locf_exact <- c(class_labs_exact,class_vitals_exact);
 
 #' ## Convert columns
@@ -133,6 +138,15 @@ d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
   unique %>% 
   survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% 
   plot(xlim=c(0,2000),col=c('red','blue'),mark.time=T);
+#' ## Fill in missing values!!
+d4 <- mutate_all(d3[,c('patient_num',class_locf_exact)],na.locf0) %>% 
+  mutate_all(na.locf0,fromLast=T);
+#' There are _still_ missing values, so fill them in with medians
+d4[,-1] <- lapply(d4[,-1],na.aggregate,median);
+#' Make the names not colide with existing ones
+names(d4)[-1] <- paste0(names(d4)[-1],'nona');
+#' Now mush these back into d3
+d3[,names(d4)[-1]]<-d4[,-1];
 #' ## We create out univariate baseline model to update a whole bunch of times soon
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
 
@@ -142,7 +156,7 @@ autoplot(survival_Curve);
 
 #Cox_Univariate and Cox_Univariate_Frailty
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
-cox_univar_frailty<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + frailty(patient_num),d3);
+cox_univar_numeric<-coxph(Surv(a_dxage,a_dxage2,a_cens_1) ~ a_age_at_stdx,d3);
 
 #Cox_ph_models with the vfs and yes and no
 #+ warning=FALSE
@@ -157,22 +171,61 @@ cox_t2_models<- lapply(cox_ph_models
                        ,update
                        ,Surv(a_dxage,a_dxage2,a_cens_1)~.-cluster(patient_num));
 
-#Concordance and Wald_results Yes and No and vfs
-results_con_wald_cluster <- sapply(cox_ph_models
-                                   ,function(xx) with(summary(xx),c(concordance,robscore))) %>%
-                                     t;
-
 #+ warning=FALSE
 cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(xx,.~.-cluster(patient_num)+frailty(patient_num)));
- 
-#Frailty results
-results_con_wald_frail <- sapply(cox_ph_models_fraility,function(xx) with(summary(xx),c(concordance,logtest))) %>% t;
+#' Create univariate models with numeric predictors
+cox_ph_models_numeric <- sapply(paste0(class_locf_exact,'nona')
+                         ,function(xx) sprintf('update(cox_univar_numeric,.~%s)',xx) %>% 
+                           parse(text=.) %>% eval,simplify = F);
 
-#New Rownames for the fraility and cluster table
-rownames(results_con_wald_frail)<-rownames(results_con_wald_cluster)<-submulti(gsub('_vf$','_num',rownames(results_con_wald_cluster)),m0[,1:2],method = 'exact')
+#' ## Results
+#' 
+#' frailty
+results_con_wald_frail <- sapply(cox_ph_models_fraility
+                                 ,function(xx) 
+                                   with(summary(xx),c(concordance,logtest))) %>% t;
+#' cluster
+results_con_wald_cluster <- sapply(cox_ph_models
+                                   ,function(xx) 
+                                     with(summary(xx),c(concordance,waldtest))) %>% t;
+#' intervals
+results_con_wald_t2 <- sapply(cox_t2_models
+                                   ,function(xx) 
+                                     with(summary(xx),c(concordance,waldtest))) %>% t;
+#' numeric
+results_con_wald_numeric <- sapply(cox_ph_models_numeric
+                              ,function(xx) 
+                                with(summary(xx),c(concordance,waldtest))) %>% t;
+
+#' New Rownames for the fraility and cluster table
+rownames(results_con_wald_t2) <- 
+  rownames(results_con_wald_frail) <- 
+  rownames(results_con_wald_cluster) <- 
+  submulti(gsub('_vf$','_num'
+                ,rownames(results_con_wald_cluster)),m0[,1:2],method = 'exact');
+#' These specifically for the numeric models 
+rownames(results_con_wald_numeric) <- 
+  submulti(gsub('nona$',''
+                ,rownames(results_con_wald_numeric)),m0[,1:2],method = 'exact'); 
+#' Comparing the numeric to the categoric, for labs only
+rows_labs <- intersect(rownames(results_con_wald_numeric)
+                       ,rownames(results_con_wald_t2));
 #' Let's try plotting out this table
 #+ results='asis'
-stargazer(results_con_wald_frail,results_con_wald_cluster,type = 'html')
+if(!interactive()){
+  cat('\nFrailty\n');
+  stargazer(results_con_wald_frail,type = 'html');
+  cat('Cluster\n');
+  stargazer(results_con_wald_cluster,type = 'html');
+  cat('Interval\n');
+  stargazer(results_con_wald_t2,results_con_wald_cluster,type = 'html');
+  cat('Numeric\n');
+  stargazer(results_con_wald_numeric,results_con_wald_cluster,type = 'html');
+  cat('Labs, Categoric and Numeric predictors side by side\n');
+  stargazer(data.frame(
+    Numeric=results_con_wald_numeric[rows_labs,]
+    ,Categoric=results_con_wald_t2[rows_labs,]),type = 'html',summary = F);
+}
 #' 
 #' More hints:
 #' 
