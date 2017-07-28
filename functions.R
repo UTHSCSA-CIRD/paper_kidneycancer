@@ -42,3 +42,25 @@ submulti <- function(xx,searchrep,method=c('partial','full','exact')){
          );
   oo;
 }
+
+#' Take a data.frame and create a PL/SQL table definition for it, ready to paste into DBVis and such
+#' @param xx A \code{data.frame} (required)
+sql_create_table <- function(xx,tname,sqltemplate='CREATE TABLE %s (%s);'){
+  mysearchrep <- cbind(c('integer','character','numeric','Date','logical','factor')
+    ,c('NUMBER(32)','VARCHAR2(nn)','NUMBER(32)','DATE','NUMBER(1)','VARCHAR2(nn)'));
+  if(missing(tname)) tname <- as.character(substitute(xx));
+  thenames <- sapply(xx, class);
+  thenames <- submulti(thenames, mysearchrep, 'exact');
+  strlengthres<-apply(nsqip,2,function(xx){max(str_length(xx))});
+  thenames <- apply(cbind(round(strlengthres*1.5), thenames),1,function(xx){gsub('nn',xx[1],xx[2])});
+  thenames <- paste(' ',names(thenames), as.character(thenames), sep=' ', collapse= ',\n');
+  thenames <- gsub('.', '_', thenames, fixed=TRUE);
+  thenames <- gsub('_{1,}','_',thenames);
+  thenames <- gsub('_ ',' ',thenames);
+  thenames <- sprintf(sqltemplate, tname, thenames);
+  cat(thenames);
+  invisible(thenames);
+  # TODO: collect the column names and classes as we did in console
+  # TODO: use the above and submulti() to convert R classes to SQL data types
+  # TODO: paste() and/or sprintf() to create the string that will be the output
+}
