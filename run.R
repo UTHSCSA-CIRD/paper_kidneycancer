@@ -5,7 +5,8 @@
 #' ---
 #' 
 #' ## Load libraries
-rq_libs <- c('survival','MASS','Hmisc','imputeTS'  # various analysis methods
+#+ warning=FALSE, message=FALSE
+rq_libs <- c('survival','MASS','Hmisc','zoo'  # various analysis methods
              ,'readr','dplyr','stringr','magrittr' # data manipulation & piping
              ,'ggplot2','ggfortify'                # plotting
              ,'stargazer');                        # table formatting
@@ -38,16 +39,32 @@ if('d0' %in% rebuild) {
   # Remove impossible START_DATEs
   d0 <- subset(d0,age_at_visit_days > 0);
 }
+#' ## Create the groups of exact column names for this dataset
+#' 
+#' Obtain the actual column names for the Yes/No columns in this dataset
+class_yesno_tailgreps %>% paste0(collapse='|') %>% 
+  grep(names(d0),val=T) -> class_yesno_exact;
+#' Repeat for the T/F columns in this dataset
+class_tf_tailgreps %>% paste0(collapse='|') %>% 
+  grep(names(d0),val=T) -> class_tf_exact;
+#' Name of the variable marking the entry into our retrospective cohort
+#' (i.e. in this case kidney cancer diagnosis)
+item_starting_exact <- grep(item_starting_grep,names(d0),value = T);
+#' Preliminary step -- exact names of columns containing full lab info
+class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%
+  grep(names(d1), value=T)-> class_lab_info_exact;
+#' Exact names of columns containing the value flags only
+class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);
+#' Create cancer and metastasis indicators (after re-running data-pull)
+# Changing them to column names
+class_diag_outcome_exact <- class_diag_outcome_grep  %>% paste0(collapse = "|") %>%  
+  grep(names(d1), value=T);
+class_locf_exact <- c(class_labs_exact,class_vitals_exact);
+
 #' ## Convert columns
 #' 
 #' Create copy of original dataset
 d1 <- d0;
-#' Obtain the actual column names for the Yes/No columns in this dataset
-class_yesno_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_yesno_exact;
-#' Name of the variable marking the entry into our retrospective cohort
-#' (i.e. in this case kidney cancer diagnosis)
-item_starting_exact <- grep(item_starting_grep,names(d0),value = T);
 #' Convert those columns to Yes/No values
 d1[,class_yesno_exact] <- sapply(d1[,class_yesno_exact]
                                  ,function(xx){
@@ -55,9 +72,6 @@ d1[,class_yesno_exact] <- sapply(d1[,class_yesno_exact]
                                           ,levels = c(F,T)
                                           ,labels = c('Yes','No'))}
                                  ,simplify = F);
-#' Repeat for the T/F columns in this dataset
-class_tf_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_tf_exact;
 d1[,class_tf_exact] <- sapply(d1[,class_tf_exact],function(xx) !is.na(xx),simplify = F);
 #' Create nominal values, binning the small groups into `other` using `cl_bintail()`
 #' ...all as one command!
@@ -65,23 +79,12 @@ d1[,class_demog_exact] <- d1[,class_demog_exact] %>%
   sapply(function(xx) cl_bintail(xx,topn=2),simplify=F);
 #' ## Extract VF's for lab values and create flag columns
 #' New code for sapply lab values
-#' Preliminary step -- exact names of columns containing full lab info
-class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%
-  grep(names(d1), value=T)-> class_lab_info_exact;
-#' Exact names of columns containing the value flags only
-class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);  
 
 d1 <-sapply(d1[ ,class_lab_info_exact], function(xx){
   ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% 
     factor(levels=c("NONE","'vf':['L']","'vf':['H']"),labels= c("None","Low","High")) %>% relevel(ref = 'None')
   }) %>% data.frame() %>% 
   setNames(class_lab_vf_exact) %>% cbind(d1,.);
-
-
-#' Create cancer and metastasis indicators (after re-running data-pull)
-# Changing them to column names
-class_diag_outcome_exact <- class_diag_outcome_grep  %>% paste0(collapse = "|") %>%  
-grep(names(d1), value=T)
 
 d1$a_metastasis <- d1[,class_diag_outcome_exact] %>% apply(1,any);
 #' # TODO: create a metastasis OR deceased indicator, the trick is we need to use
@@ -135,24 +138,21 @@ cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),
 
 ##Plotting the survival curve using the package "ggfortify"
 survival_Curve<-d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%mutate(a_dxage=last(a_dxage) ,a_cens_1=last(a_cens_1),a_age_at_stdx=last(a_age_at_stdx)) %>% unique %>% survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.)
-autoplot(survival_Curve,)
-
-
-class_yesno_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_yesno_exact;
-
+autoplot(survival_Curve);
 
 #Cox_Univariate and Cox_Univariate_Frailty
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
 cox_univar_frailty<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + frailty(patient_num),d3);
 
 #Cox_ph_models with the vfs and yes and no
+#+ warning=FALSE
 cox_ph_models<-sapply(c(class_lab_vf_exact,class_yesno_exact)
                       ,function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
                         parse(text=.) %>% eval);
 #' I did a little more reading about coxph, and maybe the interval formulation is a
 #' way to handle time-varying covariates than cluster. So let's try this one too.
 #' 
+#+ warning=FALSE
 cox_t2_models<- lapply(cox_ph_models
                        ,update
                        ,Surv(a_dxage,a_dxage2,a_cens_1)~.-cluster(patient_num));
@@ -162,7 +162,7 @@ results_con_wald_cluster <- sapply(cox_ph_models
                                    ,function(xx) with(summary(xx),c(concordance,robscore))) %>%
                                      t;
 
-
+#+ warning=FALSE
 cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(xx,.~.-cluster(patient_num)+frailty(patient_num)));
  
 #Frailty results
