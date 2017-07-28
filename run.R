@@ -6,9 +6,9 @@
 #' 
 #' ## Load libraries
 #+ warning=FALSE, message=FALSE
-rq_libs <- c('survival','MASS','Hmisc','zoo'  # various analysis methods
+rq_libs <- c('survival','MASS','Hmisc','zoo'       # various analysis methods
              ,'readr','dplyr','stringr','magrittr' # data manipulation & piping
-             ,'ggplot2','ggfortify'                # plotting
+             ,'ggplot2','ggfortify','grid'         # plotting
              ,'stargazer');                        # table formatting
 rq_installed <- sapply(rq_libs,require,character.only=T);
 rq_need <- names(rq_installed[!rq_installed]);
@@ -147,6 +147,11 @@ d4[,-1] <- lapply(d4[,-1],na.aggregate,median);
 names(d4)[-1] <- paste0(names(d4)[-1],'nona');
 #' Now mush these back into d3
 d3[,names(d4)[-1]]<-d4[,-1];
+#' The last visits only, for plotting
+d5 <- summarise_all(d3,last);
+d5 <- lapply(cox_ph_models_numeric,predict,d5,type='lp') %>% 
+  lapply(function(xx) xx>median(xx)) %>% 
+  setNames(.,gsub('nona','lp',names(.))) %>% data.frame %>% cbind(d5,.)
 #' ## We create out univariate baseline model to update a whole bunch of times soon
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
 
@@ -210,7 +215,7 @@ rownames(results_con_wald_numeric) <-
 #' Comparing the numeric to the categoric, for labs only
 rows_labs <- intersect(rownames(results_con_wald_numeric)
                        ,rownames(results_con_wald_t2));
-#' Let's try plotting out this table
+#' Let's try printing out this table
 #+ results='asis'
 if(!interactive()){
   cat('\nFrailty\n');
@@ -226,6 +231,13 @@ if(!interactive()){
     Numeric=results_con_wald_numeric[rows_labs,]
     ,Categoric=results_con_wald_t2[rows_labs,]),type = 'html',summary = F);
 }
+#' ## Survival plots for numeric predictors
+#+ warning=FALSE
+plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx) 
+  sprintf("autoplot(survfit(Surv(a_dxage,a_cens_1)~%s,d5),col=c('red','blue'),mark.time = T,xlim=c(0,1500))",xx) %>% 
+    parse(text=.) %>% eval,simplify = F) %>% 
+  setNames(.,gsub('lp$','',names(.)) %>% submulti(m0[,1:2]))
+plots_cph_numeric <- sapply(names(plots_cph_numeric),function(xx) plots_cph_numeric[[xx]]+ggtitle(xx));
 #' 
 #' More hints:
 #' 
