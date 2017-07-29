@@ -147,11 +147,6 @@ d4[,-1] <- lapply(d4[,-1],na.aggregate,median);
 names(d4)[-1] <- paste0(names(d4)[-1],'nona');
 #' Now mush these back into d3
 d3[,names(d4)[-1]]<-d4[,-1];
-#' The last visits only, for plotting
-d5 <- summarise_all(d3,last);
-d5 <- lapply(cox_ph_models_numeric,predict,d5,type='lp') %>% 
-  lapply(function(xx) xx>median(xx)) %>% 
-  setNames(.,gsub('nona','lp',names(.))) %>% data.frame %>% cbind(d5,.)
 #' ## We create out univariate baseline model to update a whole bunch of times soon
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
 
@@ -182,6 +177,11 @@ cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(xx,.~.-cluster(
 cox_ph_models_numeric <- sapply(paste0(class_locf_exact,'nona')
                          ,function(xx) sprintf('update(cox_univar_numeric,.~%s)',xx) %>% 
                            parse(text=.) %>% eval,simplify = F);
+#' The last visits only, for plotting
+d5 <- summarise_all(d3,last);
+d5 <- lapply(cox_ph_models_numeric,predict,d5,type='lp') %>% 
+  lapply(function(xx) xx>median(xx)) %>% 
+  setNames(.,gsub('nona','lp',names(.))) %>% data.frame %>% cbind(d5,.)
 
 #' ## Results
 #' 
