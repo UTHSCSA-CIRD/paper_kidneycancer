@@ -223,7 +223,7 @@ if(!interactive()){
   cat('Cluster\n');
   stargazer(results_con_wald_cluster,type = 'html');
   cat('Interval\n');
-  stargazer(results_con_wald_t2,results_con_wald_cluster,type = 'html');
+  stargazer(results_con_wald_t2,type = 'html');
   cat('Numeric\n');
   stargazer(results_con_wald_numeric,results_con_wald_cluster,type = 'html');
   cat('Labs, Categoric and Numeric predictors side by side\n');
@@ -238,7 +238,8 @@ plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx)
     parse(text=.) %>% eval,simplify = F) %>% 
   setNames(.,gsub('lp$','',names(.)) %>% submulti(m0[,1:2]))
 plots_cph_numeric <- sapply(names(plots_cph_numeric)
-                            ,function(xx) plots_cph_numeric[[xx]]+ggtitle(xx),simplify=F);
+                            ,function(xx) plots_cph_numeric[[xx]] + 
+                              theme(legend.position = 'none')+ggtitle(xx),simplify=F);
 multiplot(plotlist=plots_cph_numeric,cols=5);
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
