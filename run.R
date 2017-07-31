@@ -276,7 +276,7 @@ plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx)
   setNames(.,gsub('lp$','',names(.)) %>% submulti(m0[,1:2]))
 plots_cph_numeric <- sapply(names(plots_cph_numeric)
                             ,function(xx) plots_cph_numeric[[xx]] + 
-                              theme(legend.position = 'none')+ggtitle(xx),simplify=F);
+                              theme(legend.position = 'none')+ggtitle(xx)+labs(x='Time in Days', y = '% of Metastasis Free'),simplify=F);
 multiplot(plotlist=plots_cph_numeric,cols=5);
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
