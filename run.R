@@ -293,7 +293,7 @@ coxph_mv0 <- coxph(formula = Surv(a_dxage, a_dxage2, a_cens_1) ~ v029_Hspnc_or_L
 class_mv0_tailgreps %>% paste0(collapse='|') %>% 
   grep(names(d3),val=T) -> class_mv0_exact;
 #' Possible variables to consider for addition
-class_mv1_candidates_exact <- c(demcols
+class_mv1_candidates_exact <- c(demcols[1:3],'a_age_at_stdx'
                           ,paste0(class_locf_exact,'nona')
                           ,class_yesno_exact);
 #' Remove the ones which are already in mv0
