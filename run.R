@@ -278,6 +278,15 @@ plots_cph_numeric <- sapply(names(plots_cph_numeric)
                             ,function(xx) plots_cph_numeric[[xx]] + 
                               theme(legend.position = 'none')+ggtitle(xx),simplify=F);
 multiplot(plotlist=plots_cph_numeric,cols=5);
+#' # The Multivariable Model
+#' 
+#' Based on some ad-hoc exploration (picking the univariate predictors with the 
+#' best concordances and a few facially reasonable demographic predictors,
+#' fitting them all, and seeing which were significant) here is the _starting_ 
+#' model. _Not_ the final one.
+coxph_mv0 <- coxph(formula = Surv(a_dxage, a_dxage2, a_cens_1) ~ v029_Hspnc_or_Ltn + 
+                     v037_CN_ANLGSCS + v050_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_numnona, 
+                   data = d3);
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
 #' 
