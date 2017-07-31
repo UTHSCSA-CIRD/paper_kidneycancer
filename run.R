@@ -5,9 +5,10 @@
 #' ---
 #' 
 #' ## Load libraries
-rq_libs <- c('survival','MASS','Hmisc','imputeTS'  # various analysis methods
+#+ warning=FALSE, message=FALSE
+rq_libs <- c('survival','MASS','Hmisc','zoo'       # various analysis methods
              ,'readr','dplyr','stringr','magrittr' # data manipulation & piping
-             ,'ggplot2','ggfortify'                # plotting
+             ,'ggplot2','ggfortify','grid'         # plotting
              ,'stargazer');                        # table formatting
 rq_installed <- sapply(rq_libs,require,character.only=T);
 rq_need <- names(rq_installed[!rq_installed]);
@@ -38,16 +39,40 @@ if('d0' %in% rebuild) {
   # Remove impossible START_DATEs
   d0 <- subset(d0,age_at_visit_days > 0);
 }
+#' ## Create the groups of exact column names for this dataset
+#' 
+#' Obtain the actual column names for the Yes/No columns in this dataset
+class_yesno_tailgreps %>% paste0(collapse='|') %>% 
+  grep(names(d0),val=T) -> class_yesno_exact;
+#' Repeat for the T/F columns in this dataset
+class_tf_tailgreps %>% paste0(collapse='|') %>% 
+  grep(names(d0),val=T) -> class_tf_exact;
+#' Columns indicating Hispanic ethnicity
+class_hisp_grep %>% paste0(collapse='|') %>% 
+  grep(names(d0),val=T) -> class_hisp_exact;
+#' Name of the variable marking the entry into our retrospective cohort
+#' (i.e. in this case kidney cancer diagnosis)
+item_starting_exact <- grep(item_starting_grep,names(d0),value = T);
+#' names of lab value columns and again for vitals
+class_labs_tailgreps %>% paste0(collapse = "|") %>%
+  grep(names(d0), value=T)-> class_labs_exact;
+class_vitals_tailgreps %>% paste0(collapse = "|") %>%
+  grep(names(d0), value=T)-> class_vitals_exact;
+#' Preliminary step -- exact names of columns containing full lab info
+class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%
+  grep(names(d0), value=T)-> class_lab_info_exact;
+#' Exact names of columns containing the value flags only
+class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);
+#' Create cancer and metastasis indicators
+# Changing them to column names
+class_diag_outcome_exact <- class_diag_outcome_grep  %>% paste0(collapse = "|") %>%  
+  grep(names(d0), value=T);
+class_locf_exact <- c(class_labs_exact,class_vitals_exact);
+
 #' ## Convert columns
 #' 
 #' Create copy of original dataset
 d1 <- d0;
-#' Obtain the actual column names for the Yes/No columns in this dataset
-class_yesno_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_yesno_exact;
-#' Name of the variable marking the entry into our retrospective cohort
-#' (i.e. in this case kidney cancer diagnosis)
-item_starting_exact <- grep(item_starting_grep,names(d0),value = T);
 #' Convert those columns to Yes/No values
 d1[,class_yesno_exact] <- sapply(d1[,class_yesno_exact]
                                  ,function(xx){
@@ -55,9 +80,6 @@ d1[,class_yesno_exact] <- sapply(d1[,class_yesno_exact]
                                           ,levels = c(F,T)
                                           ,labels = c('Yes','No'))}
                                  ,simplify = F);
-#' Repeat for the T/F columns in this dataset
-class_tf_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_tf_exact;
 d1[,class_tf_exact] <- sapply(d1[,class_tf_exact],function(xx) !is.na(xx),simplify = F);
 #' Create nominal values, binning the small groups into `other` using `cl_bintail()`
 #' ...all as one command!
@@ -65,23 +87,12 @@ d1[,class_demog_exact] <- d1[,class_demog_exact] %>%
   sapply(function(xx) cl_bintail(xx,topn=2),simplify=F);
 #' ## Extract VF's for lab values and create flag columns
 #' New code for sapply lab values
-#' Preliminary step -- exact names of columns containing full lab info
-class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%
-  grep(names(d1), value=T)-> class_lab_info_exact;
-#' Exact names of columns containing the value flags only
-class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);  
 
 d1 <-sapply(d1[ ,class_lab_info_exact], function(xx){
   ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% 
     factor(levels=c("NONE","'vf':['L']","'vf':['H']"),labels= c("None","Low","High")) %>% relevel(ref = 'None')
   }) %>% data.frame() %>% 
   setNames(class_lab_vf_exact) %>% cbind(d1,.);
-
-
-#' Create cancer and metastasis indicators (after re-running data-pull)
-# Changing them to column names
-class_diag_outcome_exact <- class_diag_outcome_grep  %>% paste0(collapse = "|") %>%  
-grep(names(d1), value=T)
 
 d1$a_metastasis <- d1[,class_diag_outcome_exact] %>% apply(1,any);
 #' # TODO: create a metastasis OR deceased indicator, the trick is we need to use
@@ -130,64 +141,146 @@ d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
   unique %>% 
   survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% 
   plot(xlim=c(0,2000),col=c('red','blue'),mark.time=T);
+#' ## Fill in missing values!!
+d4 <- mutate_all(d3[,c('patient_num',class_locf_exact)],na.locf0) %>% 
+  mutate_all(na.locf0,fromLast=T);
+#' There are _still_ missing values, so fill them in with medians
+d4[,-1] <- lapply(d4[,-1],na.aggregate,median);
+#' Make the names not colide with existing ones
+names(d4)[-1] <- paste0(names(d4)[-1],'nona');
+#' Now mush these back into d3
+d3[,names(d4)[-1]]<-d4[,-1];
 #' ## We create out univariate baseline model to update a whole bunch of times soon
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
 
 ##Plotting the survival curve using the package "ggfortify"
 survival_Curve<-d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%mutate(a_dxage=last(a_dxage) ,a_cens_1=last(a_cens_1),a_age_at_stdx=last(a_age_at_stdx)) %>% unique %>% survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.)
-autoplot(survival_Curve,)
-#' Example code... AFTER you have gone over all the revisions, see if you
-#' can turn this into a non-hardcoded `sapply()` call.
-#sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)','v026_Hct_VFr_Bld_At_4544_3_vf') %>% 
-#  parse(text=.) %>% eval;
-#Applying summary function uto the coxph models and finding their concordance, wald test, and 
-sapply(cox_ph_models,function(xx) c(summary(xx)[['concordance']], summary(xx)[['waldtest']])) %>% t -> Concordance_and_Wald_results;
-#' ## Next Actionable Steps
-#' * TODO: Have the models not only go through the _vf columns like
-#' they do now, but also through the any column that has a Yes/No value.
-#' (hint: in metadata.R we create a vector called `class_yesno_tailgreps`
-#' that can be used in the same way as we already use `class_diag_outcome_grep`
-#' in the code above)
-#' 
-class_yesno_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_yesno_exact;
-
-#' * TODO: Now take the whole list `cox_ph_models` and mass-update all the models
-#' to remove the term `cluster(patient_num)` and add the term `frailty(patient_num)`
-#' instead. Try to get the concordance and Wald tests for those and see if they
-#' are better than the `cluster(patient_num)` versions. Warning: this might have
-#' a long runtime. Maybe you might want to split the work
+autoplot(survival_Curve);
 
 #Cox_Univariate and Cox_Univariate_Frailty
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
-cox_univar_frailty<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + frailty(patient_num),d3);
+cox_univar_numeric<-coxph(Surv(a_dxage,a_dxage2,a_cens_1) ~ a_age_at_stdx,d3);
 
-#Cox_ph_models with the vfs and yes and no
+#' Cox_ph_models with the vfs and yes and no
+#+ warning=FALSE
 cox_ph_models<-sapply(c(class_lab_vf_exact,class_yesno_exact)
                       ,function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
                         parse(text=.) %>% eval);
-#' I did a little more reading about coxph, and maybe the interval formulation is a
+#' maybe the interval formulation is a better
 #' way to handle time-varying covariates than cluster. So let's try this one too.
 #' 
+#+ warning=FALSE
 cox_t2_models<- lapply(cox_ph_models
                        ,update
                        ,Surv(a_dxage,a_dxage2,a_cens_1)~.-cluster(patient_num));
 
-#Concordance and Wald_results Yes and No and vfs
-results_con_wald_cluster <- sapply(cox_ph_models
-                                   ,function(xx) with(summary(xx),c(concordance,robscore))) %>%
-                                     t;
-#' ## TODO: JG, my own edits notwithstanding, I still need you to go through the 
-#' whole run.R file line by line and make sure all your bugs are fixed.
-#' 
-cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(cox_ph_models$xx.~.-cluster(patient_num)+frailty(patient_num)));
-sapply(cox_ph_models,function(xx) update(cox_ph_models,.~.-cluster(patient_num)+frailty(patient_num)) 
-#Frailty results
-results_con_wald_frail <- sapply(cox_ph_models_fraility,function(xx) with(summary(xx),c(concordance,logtest))) %>% t;
+#+ warning=FALSE
+cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(xx,.~.-cluster(patient_num)+frailty(patient_num)));
+#' Create univariate models with numeric predictors
+cox_ph_models_numeric <- sapply(paste0(class_locf_exact,'nona')
+                         ,function(xx) sprintf('update(cox_univar_numeric,.~%s)',xx) %>% 
+                           parse(text=.) %>% eval,simplify = F);
+#' demographics (non-time dependent)
+cox_t2_demog <- sapply(c(class_demog_exact,class_hisp_exact)
+                       ,function(xx) sprintf('update(cox_univar_numeric,.~%s)',xx) %>%
+                         parse(text=.) %>% eval,simplify = F);
+#' Some static models
+#' The last visits only, for plotting
+d5 <- summarise_all(d3,last);
+d5 <- lapply(cox_ph_models_numeric,predict,d5,type='lp') %>% 
+  lapply(function(xx) xx>median(xx)) %>% 
+  setNames(.,gsub('nona','lp',names(.))) %>% data.frame %>% cbind(d5,.)
 
-#' Let's try plotting out this table
+#' ## Results
+#' 
+#' frailty
+results_con_wald_frail <- sapply(cox_ph_models_fraility
+                                 ,function(xx) 
+                                   with(summary(xx),c(concordance,logtest))) %>% t;
+#' cluster
+results_con_wald_cluster <- sapply(cox_ph_models
+                                   ,function(xx) 
+                                     with(summary(xx),c(concordance,logtest))) %>% t;
+#' intervals
+results_con_wald_t2 <- sapply(cox_t2_models
+                                   ,function(xx) 
+                                     with(summary(xx),c(concordance,logtest))) %>% t;
+#' numeric
+results_con_wald_numeric <- sapply(cox_ph_models_numeric
+                              ,function(xx) 
+                                with(summary(xx),c(concordance,logtest))) %>% t;
+
+#' New Rownames for the fraility and cluster table
+rownames(results_con_wald_t2) <- 
+  rownames(results_con_wald_frail) <- 
+  rownames(results_con_wald_cluster) <- 
+  submulti(gsub('_vf$','_num'
+                ,rownames(results_con_wald_cluster)),m0[,1:2],method = 'exact');
+#' These specifically for the numeric models 
+rownames(results_con_wald_numeric) <- 
+  submulti(gsub('nona$',''
+                ,rownames(results_con_wald_numeric)),m0[,1:2],method = 'exact'); 
+#' Comparing the numeric to the categoric, for labs only
+rows_labs <- intersect(rownames(results_con_wald_numeric)
+                       ,rownames(results_con_wald_t2));
+rows_vitals <- setdiff(rownames(results_con_wald_numeric),rows_labs);
+rows_other <- setdiff(rownames(results_con_wald_cluster),rows_labs);
+#' ## Do the Wilcoxon tests
+#' 
+#' Right-censored (and clustered) vs interval-censored, goodness-of-fit
+wilcox.test(results_con_wald_cluster[,3]
+            ,results_con_wald_t2[,3],paired = T,conf.int=T);
+#' Right-censored (and clustered) vs interval-censored, concordance
+wilcox.test(results_con_wald_cluster[,1]
+            ,results_con_wald_t2[,1],paired = T,conf.int=T);
+#' Right-censored (and clustered) vs interval-censored, goodness-of-fit
+wilcox.test(results_con_wald_cluster[,3]
+            ,results_con_wald_t2[,3],paired = T,conf.int=T);
+#' discretized versus LOCF, goodness-of-fit
+wilcox.test(results_con_wald_t2[rows_labs,3]
+            ,results_con_wald_numeric[rows_labs,3],paired = T,conf.int=T);
+#' discretized versus LOCF, concordance
+wilcox.test(results_con_wald_t2[rows_labs,1]
+            ,results_con_wald_numeric[rows_labs,1],paired = T,conf.int=T);
+#' Let's try printing out the tables of concordances and goodness-of-fit
 #+ results='asis'
-stargazer(Concordance_and_Wald_results_Yes_and_No_and_vfs, type="html");
+if(!interactive()){
+  cat('\nFrailty\n');
+  stargazer(results_con_wald_frail,type = 'html');
+  cat('Cluster\n');
+  stargazer(results_con_wald_cluster,type = 'html');
+  cat('Interval\n');
+  stargazer(results_con_wald_t2,type = 'html');
+  cat('Numeric\n');
+  stargazer(results_con_wald_numeric,results_con_wald_cluster,type = 'html');
+  cat('Labs, Categoric and Numeric predictors side by side\n');
+  stargazer(data.frame(
+    Numeric=results_con_wald_numeric[rows_labs,]
+    ,Categoric=results_con_wald_t2[rows_labs,]),type = 'html',summary = F);
+};
+#' Also, here is hispanic ethnicity, as  predictor in an interval-censored model
+#+ results='asis'
+sapply(class_hisp_exact
+       ,function(xx) stargazer(cox_t2_demog[[xx]]
+                              ,type=if(interactive()) 'text' else 'html')) -> .junk;
+#' Survival plot for Hispanic vs Non Hispanic
+pred_hisp <- predict(cox_t2_demog[[class_hisp_exact[1]]],d5);
+autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
+  scale_fill_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic')) + 
+  scale_color_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic'));
+#' ## Survival plots for numeric predictors
+#+ warning=FALSE
+plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx) 
+  sprintf("autoplot(survfit(Surv(a_dxage,a_cens_1)~%s,d5),col=c('red','blue'),mark.time = T,xlim=c(0,1500))",xx) %>% 
+    parse(text=.) %>% eval,simplify = F) %>% 
+  setNames(.,gsub('lp$','',names(.)) %>% submulti(m0[,1:2]))
+plots_cph_numeric <- sapply(names(plots_cph_numeric)
+                            ,function(xx) plots_cph_numeric[[xx]] + 
+                              theme(legend.position = 'none')+ggtitle(xx),simplify=F);
+multiplot(plotlist=plots_cph_numeric,cols=5);
+#' Note that you can also generate a big version of any of these manually
+#' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
+#' 
 #' 
 #' More hints:
 #' 
@@ -207,12 +300,12 @@ stargazer(Concordance_and_Wald_results_Yes_and_No_and_vfs, type="html");
 #' giving error messages you can copy-paste into google).
 #' * You can capture the output of an unknown function into a variable and the 
 #' following commands can help you investigate it...
-#' ** class(foo)
-#' ** names(foo)
-#' ** sapply(foo,class)
-#' ** methods(class=class(foo))
-#' ** summary(foo)
-#' ** ...and all the above for bar where bar is an element within foo
+#'  * class(foo)
+#'  * names(foo)
+#'  * sapply(foo,class)
+#'  * methods(class=class(foo))
+#'  * summary(foo)
+#'  * ...and all the above for bar where bar is an element within foo
 #' that you are interested in and can be indexed either as foo[['bar']]
 #' or foo$bar (the two mean the same thing)
 #' * Strings need to be quoted, the names of objects need to not be quoted.
