@@ -47,6 +47,9 @@ class_yesno_tailgreps %>% paste0(collapse='|') %>%
 #' Repeat for the T/F columns in this dataset
 class_tf_tailgreps %>% paste0(collapse='|') %>% 
   grep(names(d0),val=T) -> class_tf_exact;
+#' Columns indicating Hispanic ethnicity
+class_hisp_grep %>% paste0(collapse='|') %>% 
+  grep(names(d0),val=T) -> class_hisp_exact;
 #' Name of the variable marking the entry into our retrospective cohort
 #' (i.e. in this case kidney cancer diagnosis)
 item_starting_exact <- grep(item_starting_grep,names(d0),value = T);
@@ -60,7 +63,7 @@ class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%
   grep(names(d0), value=T)-> class_lab_info_exact;
 #' Exact names of columns containing the value flags only
 class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);
-#' Create cancer and metastasis indicators (after re-running data-pull)
+#' Create cancer and metastasis indicators
 # Changing them to column names
 class_diag_outcome_exact <- class_diag_outcome_grep  %>% paste0(collapse = "|") %>%  
   grep(names(d0), value=T);
@@ -158,12 +161,12 @@ autoplot(survival_Curve);
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
 cox_univar_numeric<-coxph(Surv(a_dxage,a_dxage2,a_cens_1) ~ a_age_at_stdx,d3);
 
-#Cox_ph_models with the vfs and yes and no
+#' Cox_ph_models with the vfs and yes and no
 #+ warning=FALSE
 cox_ph_models<-sapply(c(class_lab_vf_exact,class_yesno_exact)
                       ,function(xx) sprintf('update(cox_univar,.~.-a_age_at_stdx+%s)',xx) %>% 
                         parse(text=.) %>% eval);
-#' I did a little more reading about coxph, and maybe the interval formulation is a
+#' maybe the interval formulation is a better
 #' way to handle time-varying covariates than cluster. So let's try this one too.
 #' 
 #+ warning=FALSE
@@ -177,6 +180,11 @@ cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(xx,.~.-cluster(
 cox_ph_models_numeric <- sapply(paste0(class_locf_exact,'nona')
                          ,function(xx) sprintf('update(cox_univar_numeric,.~%s)',xx) %>% 
                            parse(text=.) %>% eval,simplify = F);
+#' demographics (non-time dependent)
+cox_t2_demog <- sapply(c(class_demog_exact,class_hisp_exact)
+                       ,function(xx) sprintf('update(cox_univar_numeric,.~%s)',xx) %>%
+                         parse(text=.) %>% eval,simplify = F);
+#' Some static models
 #' The last visits only, for plotting
 d5 <- summarise_all(d3,last);
 d5 <- lapply(cox_ph_models_numeric,predict,d5,type='lp') %>% 
@@ -192,15 +200,15 @@ results_con_wald_frail <- sapply(cox_ph_models_fraility
 #' cluster
 results_con_wald_cluster <- sapply(cox_ph_models
                                    ,function(xx) 
-                                     with(summary(xx),c(concordance,waldtest))) %>% t;
+                                     with(summary(xx),c(concordance,logtest))) %>% t;
 #' intervals
 results_con_wald_t2 <- sapply(cox_t2_models
                                    ,function(xx) 
-                                     with(summary(xx),c(concordance,waldtest))) %>% t;
+                                     with(summary(xx),c(concordance,logtest))) %>% t;
 #' numeric
 results_con_wald_numeric <- sapply(cox_ph_models_numeric
                               ,function(xx) 
-                                with(summary(xx),c(concordance,waldtest))) %>% t;
+                                with(summary(xx),c(concordance,logtest))) %>% t;
 
 #' New Rownames for the fraility and cluster table
 rownames(results_con_wald_t2) <- 
@@ -215,7 +223,26 @@ rownames(results_con_wald_numeric) <-
 #' Comparing the numeric to the categoric, for labs only
 rows_labs <- intersect(rownames(results_con_wald_numeric)
                        ,rownames(results_con_wald_t2));
-#' Let's try printing out this table
+rows_vitals <- setdiff(rownames(results_con_wald_numeric),rows_labs);
+rows_other <- setdiff(rownames(results_con_wald_cluster),rows_labs);
+#' ## Do the Wilcoxon tests
+#' 
+#' Right-censored (and clustered) vs interval-censored, goodness-of-fit
+wilcox.test(results_con_wald_cluster[,3]
+            ,results_con_wald_t2[,3],paired = T,conf.int=T);
+#' Right-censored (and clustered) vs interval-censored, concordance
+wilcox.test(results_con_wald_cluster[,1]
+            ,results_con_wald_t2[,1],paired = T,conf.int=T);
+#' Right-censored (and clustered) vs interval-censored, goodness-of-fit
+wilcox.test(results_con_wald_cluster[,3]
+            ,results_con_wald_t2[,3],paired = T,conf.int=T);
+#' discretized versus LOCF, goodness-of-fit
+wilcox.test(results_con_wald_t2[rows_labs,3]
+            ,results_con_wald_numeric[rows_labs,3],paired = T,conf.int=T);
+#' discretized versus LOCF, concordance
+wilcox.test(results_con_wald_t2[rows_labs,1]
+            ,results_con_wald_numeric[rows_labs,1],paired = T,conf.int=T);
+#' Let's try printing out the tables of concordances and goodness-of-fit
 #+ results='asis'
 if(!interactive()){
   cat('\nFrailty\n');
@@ -230,7 +257,17 @@ if(!interactive()){
   stargazer(data.frame(
     Numeric=results_con_wald_numeric[rows_labs,]
     ,Categoric=results_con_wald_t2[rows_labs,]),type = 'html',summary = F);
-}
+};
+#' Also, here is hispanic ethnicity, as  predictor in an interval-censored model
+#+ results='asis'
+sapply(class_hisp_exact
+       ,function(xx) stargazer(cox_t2_demog[[xx]]
+                              ,type=if(interactive()) 'text' else 'html')) -> .junk;
+#' Survival plot for Hispanic vs Non Hispanic
+pred_hisp <- predict(cox_t2_demog[[class_hisp_exact[1]]],d5);
+autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
+  scale_fill_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic')) + 
+  scale_color_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic'));
 #' ## Survival plots for numeric predictors
 #+ warning=FALSE
 plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx) 
@@ -263,12 +300,12 @@ multiplot(plotlist=plots_cph_numeric,cols=5);
 #' giving error messages you can copy-paste into google).
 #' * You can capture the output of an unknown function into a variable and the 
 #' following commands can help you investigate it...
-#' ** class(foo)
-#' ** names(foo)
-#' ** sapply(foo,class)
-#' ** methods(class=class(foo))
-#' ** summary(foo)
-#' ** ...and all the above for bar where bar is an element within foo
+#'  * class(foo)
+#'  * names(foo)
+#'  * sapply(foo,class)
+#'  * methods(class=class(foo))
+#'  * summary(foo)
+#'  * ...and all the above for bar where bar is an element within foo
 #' that you are interested in and can be indexed either as foo[['bar']]
 #' or foo$bar (the two mean the same thing)
 #' * Strings need to be quoted, the names of objects need to not be quoted.
