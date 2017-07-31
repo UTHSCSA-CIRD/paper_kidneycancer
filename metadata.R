@@ -33,7 +33,8 @@ demcols <- c('patient_num','race_cd','language_cd','age_at_visit_days');
 class_vital_grep <- c('_Dcsd_pr_SS$',"_Vtl_Sts$");
 #' Tobacco usage
 class_tobac_grep <- c('_Tbc_Usg$');
-class_hisp_grep <- c('_Hspnc_or_Ltn$|_Spnsh$');
+#class_hisp_grep <- c('_Hspnc_or_Ltn$|_Spnsh$');
+class_hisp_grep <- '_Hspnc_or_Ltn$';
 #' The `_tailgreps` suffix indicates that it is a vector of
 #' regexps that can be combined into one regexp using 
 #' `paste0(FOO,collapse='|')`
@@ -74,7 +75,7 @@ class_drugs_tailgreps <-c(
 #' ## Factors and indicators
 #' 
 #' Columns that should have a YES/NO value (i.e. may directly be used in a model)
-class_yesno_tailgreps <- c(class_drugs_tailgreps,class_diag_tailgreps)
+class_yesno_tailgreps <- c(class_drugs_tailgreps,class_diag_tailgreps);
 #' Columns that should have a T/F values (i.e. used for logical operations)
 class_tf_tailgreps <- c(class_vital_grep,class_hisp_grep,class_diag_outcome_grep);
 #' Columns that should have multiple nomanal levels (and may need re-binning)
