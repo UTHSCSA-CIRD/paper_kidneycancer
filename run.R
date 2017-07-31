@@ -189,7 +189,7 @@ cox_t2_demog <- sapply(c(class_demog_exact,class_hisp_exact)
 d5 <- summarise_all(d3,last);
 d5 <- lapply(cox_ph_models_numeric,predict,d5,type='lp') %>% 
   lapply(function(xx) xx>median(xx)) %>% 
-  setNames(.,gsub('nona','lp',names(.))) %>% data.frame %>% cbind(d5,.)
+  setNames(.,gsub('nona','lp',names(.))) %>% data.frame %>% cbind(d5,.);
 
 #' ## Results
 #' 
@@ -270,8 +270,9 @@ autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) +
   scale_color_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic'));
 #' ## Survival plots for numeric predictors
 #+ warning=FALSE
+lastevent <- max(subset(d5,a_cens_1==1)$a_dxage2);
 plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx) 
-  sprintf("autoplot(survfit(Surv(a_dxage,a_cens_1)~%s,d5),col=c('red','blue'),mark.time = T,xlim=c(0,1500))",xx) %>% 
+  sprintf("autoplot(survfit(Surv(a_dxage,a_cens_1)~%s,subset(d5,a_dxage2<=lastevent)),col=c('red','blue'),mark.time = T)",xx) %>% 
     parse(text=.) %>% eval,simplify = F) %>% 
   setNames(.,gsub('lp$','',names(.)) %>% submulti(m0[,1:2]))
 plots_cph_numeric <- sapply(names(plots_cph_numeric)
