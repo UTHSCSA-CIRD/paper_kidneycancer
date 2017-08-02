@@ -133,14 +133,14 @@ summarise(d3,a=n()) %>% subset(a<2,select=patient_num) %>%
   unlist -> pat_single_event;
 #' Remove patients with only one visit from d3
 d3 <- subset(d3,!patient_num%in%pat_single_event);
-#' Example survival plot
-d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
-  mutate(a_dxage=last(a_dxage)
-         ,a_cens_1=last(a_cens_1)
-         ,a_age_at_stdx=last(a_age_at_stdx)) %>% 
-  unique %>% 
-  survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% 
-  plot(xlim=c(0,2000),col=c('red','blue'),mark.time=T);
+#' Example survival plot (removed, no longer needed)
+# d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
+#   mutate(a_dxage=last(a_dxage)
+#          ,a_cens_1=last(a_cens_1)
+#          ,a_age_at_stdx=last(a_age_at_stdx)) %>% 
+#   unique %>% 
+#   survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% 
+#   plot(xlim=c(0,2000),col=c('red','blue'),mark.time=T);
 #' ## Fill in missing values!!
 d4 <- mutate_all(d3[,c('patient_num',class_locf_exact)],na.locf0) %>% 
   mutate_all(na.locf0,fromLast=T);
@@ -153,9 +153,6 @@ d3[,names(d4)[-1]]<-d4[,-1];
 #' ## We create out univariate baseline model to update a whole bunch of times soon
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
 
-##Plotting the survival curve using the package "ggfortify"
-survival_Curve<-d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%mutate(a_dxage=last(a_dxage) ,a_cens_1=last(a_cens_1),a_age_at_stdx=last(a_age_at_stdx)) %>% unique %>% survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.)
-autoplot(survival_Curve);
 
 #Cox_Univariate and Cox_Univariate_Frailty
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
@@ -193,6 +190,11 @@ d5 <- lapply(cox_ph_models_numeric,predict,type='lp',collapse=d3$patient_num) %>
   setNames(.,gsub('nona','lp',names(.))) %>% data.frame %>% cbind(d5,.);
 lastevent <- max(subset(d5,a_cens_1==1)$a_dxage2);
 d5$a_dxage3 <- pmin(d5$a_dxage,lastevent);
+
+#' ##Plotting the survival curve using the package "ggfortify"
+#'
+#' Base survfit object, for plotting
+sf0 <-survfit(Surv(a_dxage,a_cens_1)~1,d5);
 
 #' ## Results
 #' 
@@ -268,18 +270,21 @@ sapply(class_hisp_exact
                               ,type=if(interactive()) 'text' else 'html')) -> .junk;
 #' Survival plot for Hispanic vs Non Hispanic
 pred_hisp <- predict(cox_t2_demog[[class_hisp_exact[1]]],d5);
-autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
+#autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
+autoplot(update(sf0,.~pred_hisp)) +
   scale_fill_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic')) + 
   scale_color_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic'));
 #' ## Survival plots for numeric predictors
 #+ warning=FALSE
 plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx) 
-  sprintf("autoplot(survfit(Surv(a_dxage3,a_cens_1)~%s,d5),col=c('red','blue'),mark.time = T)",xx) %>% 
+  sprintf("autoplot(update(sf0,.~%s),mark.time = T,xlim=c(0,1500))",xx) %>% 
     parse(text=.) %>% eval,simplify = F) %>% 
   setNames(.,gsub('lp$','',names(.)) %>% submulti(m0[,1:2]))
 plots_cph_numeric <- sapply(names(plots_cph_numeric)
                             ,function(xx) plots_cph_numeric[[xx]] + 
-                              theme(legend.position = 'none')+ggtitle(xx)+labs(x='Time in Days', y = '% Metastasis Free'),simplify=F);
+                              theme(legend.position = 'none') + 
+                              ggtitle(xx) + 
+                              labs(x='Time in Days', y = '% Metastasis Free'),simplify=F);
 multiplot(plotlist=plots_cph_numeric,cols=5);
 #' # The Multivariable Model
 #' 
@@ -301,6 +306,8 @@ class_mv1_candidates_exact <- c(demcols[1:3],'a_age_at_stdx'
                           ,class_yesno_exact);
 #' Remove the ones which are already in mv0
 class_mv1_candidates_exact <- setdiff(class_mv1_candidates_exact,class_mv0_exact);
+paste0(class_mv1_candidates_exact,collapse='+') %>% 
+  sprintf('.~(.+%s)^2',.) %>% formula -> frm_mv1_upper;
 #' Fire up stepAIC and get a cup of coffee!
 # We use sprintf to construct the expression out of a fixed string and 
 # a pasted-together vector of variable names, because it's a very long
@@ -324,6 +331,29 @@ sprintf(
   # Now we pipe this string to parse which turns it into a call and eval which
   # attempts to execute that call. Good luck to us!
   parse(text=.) %>% eval -> coxph_mv1;
+
+#' ## Here comes another crazy part. Resampling.
+#' 
+#' How can we be sure that our elaborate coxph_mv1 model, even with only 2-way
+#' interactions, is not overfitting the data? If we had a different sample, what
+#' would be in this model instead of what we got? The purpose of resampling is
+#' to answer that question. We will sample with replacement random _patients_
+#' (i.e. for those patients we will keep all visits, but not all patients will be
+#' part of all samples). We will do this many times and run stepAIC each time. It
+#' will take a while.
+if(file.exists('aic_resampled00.rdata')) load('aic_resampled00.rdata') else {
+  split(seq(nrow(d3)),d3$patient_num) %>% 
+    replicate(n=20,expr=unlist(sample(.,length(.),rep=T))) -> rows_resampled;
+  aic_resampled <- list();
+  current_ii <- 1;
+}
+if(current_ii < 3) for(ii in current_ii:3){
+  sprintf(
+    'stepAIC(update(coxph_mv0,data=d3[rows_resampled[[ii]],]),scope = list(lower=.~1,upper=.~(.+%s)^2),direction="both")'
+    ,paste0(class_mv1_candidates_exact,collapse='+')) %>% 
+    parse(text=.) %>% eval -> aic_resampled[[ii]];
+  if(!ii%%5) {current_ii <- ii; save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata')};
+}
 
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
