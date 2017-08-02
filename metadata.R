@@ -80,3 +80,11 @@ class_yesno_tailgreps <- c(class_drugs_tailgreps,class_diag_tailgreps);
 class_tf_tailgreps <- c(class_vital_grep,class_hisp_grep,class_diag_outcome_grep);
 #' Columns that should have multiple nomanal levels (and may need re-binning)
 class_mult_exact <- c('language_cd','race_cd');
+
+#' ## Roundup of multivariable predictors
+#' 
+#' These were found in an ad-hoc way...
+#' 
+class_mv0_tailgreps <- c('_Hspnc_or_Ltn$'
+                         ,'_CN_ANLGSCS$'
+                         ,'_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_numnona$');
