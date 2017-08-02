@@ -133,14 +133,14 @@ summarise(d3,a=n()) %>% subset(a<2,select=patient_num) %>%
   unlist -> pat_single_event;
 #' Remove patients with only one visit from d3
 d3 <- subset(d3,!patient_num%in%pat_single_event);
-#' Example survival plot
-d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
-  mutate(a_dxage=last(a_dxage)
-         ,a_cens_1=last(a_cens_1)
-         ,a_age_at_stdx=last(a_age_at_stdx)) %>% 
-  unique %>% 
-  survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% 
-  plot(xlim=c(0,2000),col=c('red','blue'),mark.time=T);
+#' Example survival plot (removed, no longer needed)
+# d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%
+#   mutate(a_dxage=last(a_dxage)
+#          ,a_cens_1=last(a_cens_1)
+#          ,a_age_at_stdx=last(a_age_at_stdx)) %>% 
+#   unique %>% 
+#   survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.) %>% 
+#   plot(xlim=c(0,2000),col=c('red','blue'),mark.time=T);
 #' ## Fill in missing values!!
 d4 <- mutate_all(d3[,c('patient_num',class_locf_exact)],na.locf0) %>% 
   mutate_all(na.locf0,fromLast=T);
@@ -153,9 +153,6 @@ d3[,names(d4)[-1]]<-d4[,-1];
 #' ## We create out univariate baseline model to update a whole bunch of times soon
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
 
-##Plotting the survival curve using the package "ggfortify"
-survival_Curve<-d3[,c('patient_num','a_dxage','a_cens_1','a_age_at_stdx')] %>%mutate(a_dxage=last(a_dxage) ,a_cens_1=last(a_cens_1),a_age_at_stdx=last(a_age_at_stdx)) %>% unique %>% survfit(Surv(a_dxage,a_cens_1)~I(a_age_at_stdx<21560),.)
-autoplot(survival_Curve);
 
 #Cox_Univariate and Cox_Univariate_Frailty
 cox_univar<-coxph(Surv(a_dxage,a_cens_1) ~ a_age_at_stdx + cluster(patient_num),d3);
@@ -190,6 +187,9 @@ d5 <- summarise_all(d3,last);
 d5 <- lapply(cox_ph_models_numeric,predict,d5,type='lp') %>% 
   lapply(function(xx) xx>median(xx)) %>% 
   setNames(.,gsub('nona','lp',names(.))) %>% data.frame %>% cbind(d5,.)
+#' Base survfit object, for plotting
+##Plotting the survival curve using the package "ggfortify"
+sf0 <-survfit(Surv(a_dxage,a_cens_1)~1,d5);
 
 #' ## Results
 #' 
@@ -265,18 +265,22 @@ sapply(class_hisp_exact
                               ,type=if(interactive()) 'text' else 'html')) -> .junk;
 #' Survival plot for Hispanic vs Non Hispanic
 pred_hisp <- predict(cox_t2_demog[[class_hisp_exact[1]]],d5);
-autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
+autoplot()
+#autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
+autoplot(update(sf0,.~pred_hisp)) +
   scale_fill_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic')) + 
   scale_color_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic'));
 #' ## Survival plots for numeric predictors
 #+ warning=FALSE
 plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx) 
-  sprintf("autoplot(survfit(Surv(a_dxage,a_cens_1)~%s,d5),col=c('red','blue'),mark.time = T,xlim=c(0,1500))",xx) %>% 
+  sprintf("autoplot(update(sf0,.~%s),mark.time = T,xlim=c(0,1500))",xx) %>% 
     parse(text=.) %>% eval,simplify = F) %>% 
   setNames(.,gsub('lp$','',names(.)) %>% submulti(m0[,1:2]))
 plots_cph_numeric <- sapply(names(plots_cph_numeric)
                             ,function(xx) plots_cph_numeric[[xx]] + 
-                              theme(legend.position = 'none')+ggtitle(xx)+labs(x='Time in Days', y = '% Metastasis Free'),simplify=F);
+                              theme(legend.position = 'none') + 
+                              ggtitle(xx) + 
+                              labs(x='Time in Days', y = '% Metastasis Free'),simplify=F);
 multiplot(plotlist=plots_cph_numeric,cols=5);
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
