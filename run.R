@@ -296,10 +296,9 @@ sprintf('update(cox_univar_numeric,.~%s)',paste0(class_mv0_exact,collapse='+')) 
   parse(text=.) %>% eval -> coxph_mv0;
 class_mvexclude_exact <- grepor(d3,class_mvexclude_tailgreps);
 #' Possible variables to consider for addition
-class_mv1_candidates_exact <- c(demcols[1:3],'a_age_at_stdx'
-                                # NOTE: the below two [1:3] are temporary, for testing
-                                ,paste0(class_locf_exact,'nona')[1:3]
-                                ,class_yesno_exact[1:3]);
+class_mv1_candidates_exact <- c(demcols[2:3],'a_age_at_stdx'
+                                ,paste0(class_locf_exact,'nona')
+                                ,class_yesno_exact);
 #' Remove the ones which are already in mv0
 class_mv1_candidates_exact <- setdiff(class_mv1_candidates_exact
                                       ,c(class_mv0_exact,class_mvexclude_exact));
