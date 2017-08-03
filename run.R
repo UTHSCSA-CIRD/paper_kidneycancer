@@ -9,7 +9,7 @@
 rq_libs <- c('survival','MASS','Hmisc','zoo'       # various analysis methods
              ,'readr','dplyr','stringr','magrittr' # data manipulation & piping
              ,'ggplot2','ggfortify','grid'         # plotting
-             ,'stargazer');                        # table formatting
+             ,'stargazer','broom');                        # table formatting
 rq_installed <- sapply(rq_libs,require,character.only=T);
 rq_need <- names(rq_installed[!rq_installed]);
 if(length(rq_need)>0) install.packages(rq_need,repos='https://cran.rstudio.com/',dependencies = T);
@@ -348,7 +348,7 @@ if(current_ii <= length(rows_resampled)) for(ii in (current_ii+1):length(rows_re
     ,keep=function(xx,aa) with(xx,list(AIC=aa,call=call,concordance=concordance)))'
     ,ii) %>% parse(text=.) %>% eval %>% try(silent=T) -> aic_resampled[[ii]];
   cat('.');
-  if(!ii%%3) {
+  if(!ii%%3 | file.exists('savenow')) {
     current_ii <- ii; cat('saving on iteration ',ii,'\n');
     save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata')};
 }
