@@ -340,7 +340,7 @@ if(file.exists('aic_resampled00.rdata')) load('aic_resampled00.rdata') else {
   aic_resampled <- list();
   current_ii <- 1;
 }
-if(current_ii <= 3) for(ii in current_ii:3){
+if(current_ii <= 3) for(ii in current_ii:length(rows_resampled)){
   sprintf(
     'stepAIC(update(coxph_mv0,data=d3[rows_resampled[[%d]],])
     ,scope = list(lower=.~1,upper=frm_mv1_upper)
