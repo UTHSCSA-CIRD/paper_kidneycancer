@@ -321,7 +321,7 @@ paste0(class_mv1_candidates_exact,collapse='+') %>%
 coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
                      ,direction="both",trace=0
                      ,keep=function(xx,aa) {
-                       cat('.');
+                       cat(' ',aa);
                        with(xx,list(AIC=aa,call=call,concordance=concordance))
                        });
 
