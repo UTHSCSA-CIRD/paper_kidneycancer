@@ -270,7 +270,6 @@ sapply(class_hisp_exact
                               ,type=if(interactive()) 'text' else 'html')) -> .junk;
 #' Survival plot for Hispanic vs Non Hispanic
 pred_hisp <- predict(cox_t2_demog[[class_hisp_exact[1]]],d5);
-autoplot()
 #autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
 autoplot(update(sf0,.~pred_hisp)) +
   scale_fill_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic')) + 
@@ -307,6 +306,8 @@ class_mv1_candidates_exact <- c(demcols[1:3],'a_age_at_stdx'
                           ,class_yesno_exact);
 #' Remove the ones which are already in mv0
 class_mv1_candidates_exact <- setdiff(class_mv1_candidates_exact,class_mv0_exact);
+paste0(class_mv1_candidates_exact,collapse='+') %>% 
+  sprintf('.~(.+%s)^2',.) %>% formula -> frm_mv1_upper;
 #' Fire up stepAIC and get a cup of coffee!
 # We use sprintf to construct the expression out of a fixed string and 
 # a pasted-together vector of variable names, because it's a very long
@@ -330,6 +331,34 @@ sprintf(
   # Now we pipe this string to parse which turns it into a call and eval which
   # attempts to execute that call. Good luck to us!
   parse(text=.) %>% eval -> coxph_mv1;
+
+#' ## Here comes another crazy part. Resampling.
+#' 
+#' How can we be sure that our elaborate coxph_mv1 model, even with only 2-way
+#' interactions, is not overfitting the data? If we had a different sample, what
+#' would be in this model instead of what we got? The purpose of resampling is
+#' to answer that question. We will sample with replacement random _patients_
+#' (i.e. for those patients we will keep all visits, but not all patients will be
+#' part of all samples). We will do this many times and run stepAIC each time. It
+#' will take a while.
+if(file.exists('aic_resampled00.rdata')) load('aic_resampled00.rdata') else {
+  split(seq(nrow(d3)),d3$patient_num) %>% 
+    replicate(n=20,expr=unlist(sample(.,length(.),rep=T))) -> rows_resampled;
+  aic_resampled <- list();
+  current_ii <- 1;
+}
+if(current_ii <= 3) for(ii in current_ii:3){
+  sprintf(
+    'stepAIC(update(coxph_mv0,data=d3[rows_resampled[[%d]],])
+    ,scope = list(lower=.~1,upper=frm_mv1_upper)
+    ,direction="both", trace=0
+    ,keep=function(xx,aa) with(xx,list(AIC=aa,call=call,concordance=concordance)))'
+    ,ii) %>% parse(text=.) %>% eval %>% try(silent=T) -> aic_resampled[[ii]];
+  cat('.');
+  if(!ii%%3) {
+    current_ii <- ii; cat('saving on iteration ',ii,'\n');
+    save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata')};
+}
 
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
