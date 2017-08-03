@@ -348,9 +348,12 @@ if(current_ii <= length(rows_resampled)) for(ii in (current_ii+1):length(rows_re
     ,keep=function(xx,aa) with(xx,list(AIC=aa,call=call,concordance=concordance)))'
     ,ii) %>% parse(text=.) %>% eval %>% try(silent=T) -> aic_resampled[[ii]];
   cat('.');
+  if(file.exists('patch0.R')) source('patch0.R',local=T);
   if(!ii%%3 | file.exists('savenow')) {
     current_ii <- ii; cat('saving on iteration ',ii,'\n');
-    save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata')};
+    save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata');
+    unlink('savenow');
+    };
 }
 
 #' How often each term was selected
