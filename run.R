@@ -86,6 +86,8 @@ d1 <-sapply(d1[ ,class_lab_info_exact], function(xx){
     factor(levels=c("NONE","'vf':['L']","'vf':['H']"),labels= c("None","Low","High")) %>% relevel(ref = 'None')
   }) %>% data.frame() %>% 
   setNames(class_lab_vf_exact) %>% cbind(d1,.);
+#' Scale the (PRESUMABLY numeric) LOCF columns
+d1[,class_locf_exact] <- lapply(d1[,class_locf_exact],scale);
 
 d1$a_metastasis <- d1[,class_diag_outcome_exact] %>% apply(1,any);
 #' # TODO: create a metastasis OR deceased indicator, the trick is we need to use
@@ -285,9 +287,6 @@ multiplot(plotlist=plots_cph_numeric,cols=5);
 #' best concordances and a few facially reasonable demographic predictors,
 #' fitting them all, and seeing which were significant) here is the _starting_ 
 #' model. _Not_ the final one.
-coxph_mv0 <- coxph(formula = Surv(a_dxage, a_dxage2, a_cens_1) ~ v029_Hspnc_or_Ltn + 
-                     v037_CN_ANLGSCS + v050_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_numnona, 
-                   data = d3);
 #' ## Set up the column names
 #' 
 #' The variables used on our initial multivariate model
@@ -354,6 +353,17 @@ if(current_ii <= 3) for(ii in current_ii:3){
     save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata')};
 }
 
+#' How often each term was selected
+lapply(aic_resampled,function(xx) tidy(xx)$term) %>% unlist %>% table %>% 
+  sort(decreasing = T) -> aic_terms;
+.oldoma <- par()$oma; par(oma=c(30,0,0,0));
+plot(aic_terms,type='h',las=3,lwd=4);
+par(oma=.oldoma);
+#' Parameter estimates
+aic_tmx <- matrix(0,nrow=length(aic_resampled),ncol=length(aic_terms));
+colnames(aic_tmx) <- names(aic_terms);
+.tempterms <- lapply(aic_resampled,function(xx) tidy(xx)[c('term','estimate')]);
+for(ii in seq_len(nrow(aic_tmx))) aic_tmx[ii,.tempterms[[ii]]$term] <- .tempterms[[ii]]$estimate;
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
 #' 
