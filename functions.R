@@ -65,6 +65,16 @@ sql_create_table <- function(xx,tname,sqltemplate='CREATE TABLE %s (%s);'){
   # TODO: paste() and/or sprintf() to create the string that will be the output
 }
 
+#' Take a data.frame or character vector and a vector of grep targets and return
+#' the values that match (for data.frame, column names that match). If no 
+#' patterns given just returns the names
+#' @param xx A \code{data.frame} or character vector (required)
+#' @param patterns A character vector of regexp targets to be OR-ed
+grepor <- function(xx,patterns='.') {
+  if(is.list(xx)) xx <-names(xx);
+  grep(paste0(patterns,collapse='|'),xx,val=T);
+}
+
 #' Delete all the junk in your environment, for testing
 clearenv <- function(env=.GlobalEnv) rm(list=setdiff(ls(all=T,envir=env),'clearenv'),envir=env);
 

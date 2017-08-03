@@ -42,31 +42,24 @@ if('d0' %in% rebuild) {
 #' ## Create the groups of exact column names for this dataset
 #' 
 #' Obtain the actual column names for the Yes/No columns in this dataset
-class_yesno_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_yesno_exact;
+class_yesno_exact <- grepor(d0,class_yesno_tailgreps);
 #' Repeat for the T/F columns in this dataset
-class_tf_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_tf_exact;
+class_tf_exact <- grepor(d0,class_tf_tailgreps);
 #' Columns indicating Hispanic ethnicity
-class_hisp_grep %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_hisp_exact;
+class_hisp_exact <- grepor(d0,class_hisp_grep);
 #' Name of the variable marking the entry into our retrospective cohort
 #' (i.e. in this case kidney cancer diagnosis)
 item_starting_exact <- grep(item_starting_grep,names(d0),value = T);
 #' names of lab value columns and again for vitals
-class_labs_tailgreps %>% paste0(collapse = "|") %>%
-  grep(names(d0), value=T)-> class_labs_exact;
-class_vitals_tailgreps %>% paste0(collapse = "|") %>%
-  grep(names(d0), value=T)-> class_vitals_exact;
+class_labs_exact <- grepor(d0,class_labs_tailgreps);
+class_vitals_exact <- grepor(d0,class_vitals_tailgreps);
 #' Preliminary step -- exact names of columns containing full lab info
-class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%
-  grep(names(d0), value=T)-> class_lab_info_exact;
+class_lab_info_exact <- gsub('_num','_info', class_labs_tailgreps) %>% grepor(d0,.);
 #' Exact names of columns containing the value flags only
 class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);
 #' Create cancer and metastasis indicators
 # Changing them to column names
-class_diag_outcome_exact <- class_diag_outcome_grep  %>% paste0(collapse = "|") %>%  
-  grep(names(d0), value=T);
+class_diag_outcome_exact <- grepor(d0,class_diag_outcome_grep);
 class_locf_exact <- c(class_labs_exact,class_vitals_exact);
 
 #' ## Convert columns
@@ -298,14 +291,18 @@ coxph_mv0 <- coxph(formula = Surv(a_dxage, a_dxage2, a_cens_1) ~ v029_Hspnc_or_L
 #' ## Set up the column names
 #' 
 #' The variables used on our initial multivariate model
-class_mv0_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d3),val=T) -> class_mv0_exact;
+class_mv0_exact <- grepor(d3,class_mv0_tailgreps);
+sprintf('update(cox_univar_numeric,.~%s)',paste0(class_mv0_exact,collapse='+')) %>% 
+  parse(text=.) %>% eval -> coxph_mv0;
+class_mvexclude_exact <- grepor(d3,class_mvexclude_tailgreps);
 #' Possible variables to consider for addition
 class_mv1_candidates_exact <- c(demcols[1:3],'a_age_at_stdx'
-                          ,paste0(class_locf_exact,'nona')
-                          ,class_yesno_exact);
+                                # NOTE: the below two [1:3] are temporary, for testing
+                                ,paste0(class_locf_exact,'nona')[1:3]
+                                ,class_yesno_exact[1:3]);
 #' Remove the ones which are already in mv0
-class_mv1_candidates_exact <- setdiff(class_mv1_candidates_exact,class_mv0_exact);
+class_mv1_candidates_exact <- setdiff(class_mv1_candidates_exact
+                                      ,c(class_mv0_exact,class_mvexclude_exact));
 paste0(class_mv1_candidates_exact,collapse='+') %>% 
   sprintf('.~(.+%s)^2',.) %>% formula -> frm_mv1_upper;
 #' Fire up stepAIC and get a cup of coffee!
@@ -314,23 +311,21 @@ paste0(class_mv1_candidates_exact,collapse='+') %>%
 # expression and as elewhere in this script, the variable names will likely
 # change from time to time
 #+ message=FALSE, warning=FALSE, cache=TRUE
-sprintf(
-  # This is a complete stepAIC call, missing only the additiona candidate 
-  # variables to try. Those will go where the %s currently is. The 'lower' part
-  # of the 'scope' argument means "be willing to drop any variable completely if
-  # it does not improve model fit". The 'upper' part means "consider adding these
-  # other variables to the existing ones (where the other variables will replace
-  # %s shortly) AND also consider every possible two-way interaction between
-  # variables you keep. See what I mean when I say this will take a while?
-  # After the 'list' argument there is a 'direction' argument, and 'both' means 
-  # we will add and remove variables.
-  'stepAIC(coxph_mv0,scope = list(lower=.~1,upper=.~(.+%s)^2),direction="both")'
-  # This paste statement simply combines together the names of the additional 
-  # candidate variables generated above with a '+' between them.
-  ,paste0(class_mv1_candidates_exact,collapse='+')) %>% 
-  # Now we pipe this string to parse which turns it into a call and eval which
-  # attempts to execute that call. Good luck to us!
-  parse(text=.) %>% eval -> coxph_mv1;
+# This is a complete stepAIC call, missing only the additiona candidate 
+# variables to try. Those will go where the %s currently is. The 'lower' part
+# of the 'scope' argument means "be willing to drop any variable completely if
+# it does not improve model fit". The 'upper' part means "consider adding these
+# other variables to the existing ones (where the other variables will replace
+# %s shortly) AND also consider every possible two-way interaction between
+# variables you keep. See what I mean when I say this will take a while?
+# After the 'list' argument there is a 'direction' argument, and 'both' means 
+# we will add and remove variables.
+coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
+                     ,direction="both",trace=0
+                     ,keep=function(xx,aa) {
+                       cat('.');
+                       with(xx,list(AIC=aa,call=call,concordance=concordance))
+                       });
 
 #' ## Here comes another crazy part. Resampling.
 #' 
