@@ -6,14 +6,17 @@
 #' 
 #' ## Load libraries
 #+ warning=FALSE, message=FALSE
-rq_libs <- c('survival','MASS','Hmisc','zoo'       # various analysis methods
+rq_libs <- c('compiler'                            # just-in-time compilation
+             ,'survival','MASS','Hmisc','zoo'      # various analysis methods
              ,'readr','dplyr','stringr','magrittr' # data manipulation & piping
              ,'ggplot2','ggfortify','grid'         # plotting
-             ,'stargazer');                        # table formatting
+             ,'stargazer','broom');                # table formatting
 rq_installed <- sapply(rq_libs,require,character.only=T);
 rq_need <- names(rq_installed[!rq_installed]);
 if(length(rq_need)>0) install.packages(rq_need,repos='https://cran.rstudio.com/',dependencies = T);
 sapply(rq_need,require,character.only=T);
+#' Turn JIT to max: pre-compile all closures, `for`, `while`, and `repeat` loops
+enableJIT(3);
 #' ## Load local config file
 source('./config.R');
 source('./metadata.R');
@@ -42,31 +45,24 @@ if('d0' %in% rebuild) {
 #' ## Create the groups of exact column names for this dataset
 #' 
 #' Obtain the actual column names for the Yes/No columns in this dataset
-class_yesno_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_yesno_exact;
+class_yesno_exact <- grepor(d0,class_yesno_tailgreps);
 #' Repeat for the T/F columns in this dataset
-class_tf_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_tf_exact;
+class_tf_exact <- grepor(d0,class_tf_tailgreps);
 #' Columns indicating Hispanic ethnicity
-class_hisp_grep %>% paste0(collapse='|') %>% 
-  grep(names(d0),val=T) -> class_hisp_exact;
+class_hisp_exact <- grepor(d0,class_hisp_grep);
 #' Name of the variable marking the entry into our retrospective cohort
 #' (i.e. in this case kidney cancer diagnosis)
 item_starting_exact <- grep(item_starting_grep,names(d0),value = T);
 #' names of lab value columns and again for vitals
-class_labs_tailgreps %>% paste0(collapse = "|") %>%
-  grep(names(d0), value=T)-> class_labs_exact;
-class_vitals_tailgreps %>% paste0(collapse = "|") %>%
-  grep(names(d0), value=T)-> class_vitals_exact;
+class_labs_exact <- grepor(d0,class_labs_tailgreps);
+class_vitals_exact <- grepor(d0,class_vitals_tailgreps);
 #' Preliminary step -- exact names of columns containing full lab info
-class_labs_tailgreps %>% gsub('_num','_info',.) %>% paste0(collapse = "|") %>%
-  grep(names(d0), value=T)-> class_lab_info_exact;
+class_lab_info_exact <- gsub('_num','_info', class_labs_tailgreps) %>% grepor(d0,.);
 #' Exact names of columns containing the value flags only
 class_lab_vf_exact <- gsub('_info$','_vf',class_lab_info_exact);
 #' Create cancer and metastasis indicators
 # Changing them to column names
-class_diag_outcome_exact <- class_diag_outcome_grep  %>% paste0(collapse = "|") %>%  
-  grep(names(d0), value=T);
+class_diag_outcome_exact <- grepor(d0,class_diag_outcome_grep);
 class_locf_exact <- c(class_labs_exact,class_vitals_exact);
 
 #' ## Convert columns
@@ -93,6 +89,8 @@ d1 <-sapply(d1[ ,class_lab_info_exact], function(xx){
     factor(levels=c("NONE","'vf':['L']","'vf':['H']"),labels= c("None","Low","High")) %>% relevel(ref = 'None')
   }) %>% data.frame() %>% 
   setNames(class_lab_vf_exact) %>% cbind(d1,.);
+#' Scale the (PRESUMABLY numeric) LOCF columns
+d1[,class_locf_exact] <- lapply(d1[,class_locf_exact],scale);
 
 d1$a_metastasis <- d1[,class_diag_outcome_exact] %>% apply(1,any);
 #' # TODO: create a metastasis OR deceased indicator, the trick is we need to use
@@ -292,20 +290,20 @@ multiplot(plotlist=plots_cph_numeric,cols=5);
 #' best concordances and a few facially reasonable demographic predictors,
 #' fitting them all, and seeing which were significant) here is the _starting_ 
 #' model. _Not_ the final one.
-coxph_mv0 <- coxph(formula = Surv(a_dxage, a_dxage2, a_cens_1) ~ v029_Hspnc_or_Ltn + 
-                     v037_CN_ANLGSCS + v050_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_numnona, 
-                   data = d3);
 #' ## Set up the column names
 #' 
 #' The variables used on our initial multivariate model
-class_mv0_tailgreps %>% paste0(collapse='|') %>% 
-  grep(names(d3),val=T) -> class_mv0_exact;
+class_mv0_exact <- grepor(d3,class_mv0_tailgreps);
+sprintf('update(cox_univar_numeric,.~%s)',paste0(class_mv0_exact,collapse='+')) %>% 
+  parse(text=.) %>% eval -> coxph_mv0;
+class_mvexclude_exact <- grepor(d3,class_mvexclude_tailgreps);
 #' Possible variables to consider for addition
-class_mv1_candidates_exact <- c(demcols[1:3],'a_age_at_stdx'
-                          ,paste0(class_locf_exact,'nona')
-                          ,class_yesno_exact);
+class_mv1_candidates_exact <- c(demcols[2:3],'a_age_at_stdx'
+                                ,paste0(class_locf_exact,'nona')
+                                ,class_yesno_exact);
 #' Remove the ones which are already in mv0
-class_mv1_candidates_exact <- setdiff(class_mv1_candidates_exact,class_mv0_exact);
+class_mv1_candidates_exact <- setdiff(class_mv1_candidates_exact
+                                      ,c(class_mv0_exact,class_mvexclude_exact));
 paste0(class_mv1_candidates_exact,collapse='+') %>% 
   sprintf('.~(.+%s)^2',.) %>% formula -> frm_mv1_upper;
 #' Fire up stepAIC and get a cup of coffee!
@@ -314,23 +312,21 @@ paste0(class_mv1_candidates_exact,collapse='+') %>%
 # expression and as elewhere in this script, the variable names will likely
 # change from time to time
 #+ message=FALSE, warning=FALSE, cache=TRUE
-sprintf(
-  # This is a complete stepAIC call, missing only the additiona candidate 
-  # variables to try. Those will go where the %s currently is. The 'lower' part
-  # of the 'scope' argument means "be willing to drop any variable completely if
-  # it does not improve model fit". The 'upper' part means "consider adding these
-  # other variables to the existing ones (where the other variables will replace
-  # %s shortly) AND also consider every possible two-way interaction between
-  # variables you keep. See what I mean when I say this will take a while?
-  # After the 'list' argument there is a 'direction' argument, and 'both' means 
-  # we will add and remove variables.
-  'stepAIC(coxph_mv0,scope = list(lower=.~1,upper=.~(.+%s)^2),direction="both")'
-  # This paste statement simply combines together the names of the additional 
-  # candidate variables generated above with a '+' between them.
-  ,paste0(class_mv1_candidates_exact,collapse='+')) %>% 
-  # Now we pipe this string to parse which turns it into a call and eval which
-  # attempts to execute that call. Good luck to us!
-  parse(text=.) %>% eval -> coxph_mv1;
+# This is a complete stepAIC call, missing only the additiona candidate 
+# variables to try. Those will go where the %s currently is. The 'lower' part
+# of the 'scope' argument means "be willing to drop any variable completely if
+# it does not improve model fit". The 'upper' part means "consider adding these
+# other variables to the existing ones (where the other variables will replace
+# %s shortly) AND also consider every possible two-way interaction between
+# variables you keep. See what I mean when I say this will take a while?
+# After the 'list' argument there is a 'direction' argument, and 'both' means 
+# we will add and remove variables.
+coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
+                     ,direction="both",trace=0
+                     ,keep=function(xx,aa) {
+                       cat(' ',aa);
+                       with(xx,list(AIC=aa,call=call,concordance=concordance))
+                       });
 
 #' ## Here comes another crazy part. Resampling.
 #' 
@@ -347,7 +343,7 @@ if(file.exists('aic_resampled00.rdata')) load('aic_resampled00.rdata') else {
   aic_resampled <- list();
   current_ii <- 1;
 }
-if(current_ii <= 3) for(ii in current_ii:3){
+if(current_ii <= length(rows_resampled)) for(ii in (current_ii+1):length(rows_resampled)){
   sprintf(
     'stepAIC(update(coxph_mv0,data=d3[rows_resampled[[%d]],])
     ,scope = list(lower=.~1,upper=frm_mv1_upper)
@@ -355,11 +351,25 @@ if(current_ii <= 3) for(ii in current_ii:3){
     ,keep=function(xx,aa) with(xx,list(AIC=aa,call=call,concordance=concordance)))'
     ,ii) %>% parse(text=.) %>% eval %>% try(silent=T) -> aic_resampled[[ii]];
   cat('.');
-  if(!ii%%3) {
+  if(file.exists('patch0.R')) source('patch0.R',local=T);
+  if(!ii%%3 | file.exists('savenow')) {
     current_ii <- ii; cat('saving on iteration ',ii,'\n');
-    save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata')};
+    save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata');
+    unlink('savenow');
+    };
 }
 
+#' How often each term was selected
+lapply(aic_resampled,function(xx) tidy(xx)$term) %>% unlist %>% table %>% 
+  sort(decreasing = T) -> aic_terms;
+.oldoma <- par()$oma; par(oma=c(30,0,0,0));
+plot(aic_terms,type='h',las=3,lwd=4);
+par(oma=.oldoma);
+#' Parameter estimates
+aic_tmx <- matrix(0,nrow=length(aic_resampled),ncol=length(aic_terms));
+colnames(aic_tmx) <- names(aic_terms);
+.tempterms <- lapply(aic_resampled,function(xx) tidy(xx)[c('term','estimate')]);
+for(ii in seq_len(nrow(aic_tmx))) aic_tmx[ii,.tempterms[[ii]]$term] <- .tempterms[[ii]]$estimate;
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
 #' 
