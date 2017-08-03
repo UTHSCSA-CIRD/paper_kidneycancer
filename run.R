@@ -347,12 +347,17 @@ if(file.exists('aic_resampled00.rdata')) load('aic_resampled00.rdata') else {
   aic_resampled <- list();
   current_ii <- 1;
 }
-if(current_ii < 3) for(ii in current_ii:3){
+if(current_ii <= 3) for(ii in current_ii:3){
   sprintf(
-    'stepAIC(update(coxph_mv0,data=d3[rows_resampled[[ii]],]),scope = list(lower=.~1,upper=.~(.+%s)^2),direction="both")'
-    ,paste0(class_mv1_candidates_exact,collapse='+')) %>% 
-    parse(text=.) %>% eval -> aic_resampled[[ii]];
-  if(!ii%%5) {current_ii <- ii; save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata')};
+    'stepAIC(update(coxph_mv0,data=d3[rows_resampled[[%d]],])
+    ,scope = list(lower=.~1,upper=frm_mv1_upper)
+    ,direction="both", trace=0
+    ,keep=function(xx,aa) with(xx,list(AIC=aa,call=call,concordance=concordance)))'
+    ,ii) %>% parse(text=.) %>% eval %>% try(silent=T) -> aic_resampled[[ii]];
+  cat('.');
+  if(!ii%%3) {
+    current_ii <- ii; cat('saving on iteration ',ii,'\n');
+    save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata')};
 }
 
 #' Note that you can also generate a big version of any of these manually
