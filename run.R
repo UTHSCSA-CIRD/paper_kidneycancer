@@ -343,13 +343,16 @@ if(file.exists('aic_resampled00.rdata')) load('aic_resampled00.rdata') else {
   aic_resampled <- list();
   current_ii <- 1;
 }
+
+expr_aic <- parse(text = 'stepAIC(update(coxph_mv0,data=d3[rows_resampled[[0]],])
+             ,scope = list(lower=.~1,upper=frm_mv1_upper)
+             ,direction="both", trace=0
+             ,keep=function(xx,aa) 
+                  with(xx,list(AIC=aa,call=call,concordance=concordance)))')[[1]];
+
 if(current_ii <= length(rows_resampled)) for(ii in (current_ii+1):length(rows_resampled)){
-  sprintf(
-    'stepAIC(update(coxph_mv0,data=d3[rows_resampled[[%d]],])
-    ,scope = list(lower=.~1,upper=frm_mv1_upper)
-    ,direction="both", trace=0
-    ,keep=function(xx,aa) with(xx,list(AIC=aa,call=call,concordance=concordance)))'
-    ,ii) %>% parse(text=.) %>% eval %>% try(silent=T) -> aic_resampled[[ii]];
+  expr_aic[[2]][[3]][[3]][[3]]<-ii;
+  try(eval(expr_aic),silent = T) -> aic_resampled[[ii]];
   cat('.');
   if(file.exists('patch0.R')) source('patch0.R',local=T);
   if(!ii%%3 | file.exists('savenow')) {
