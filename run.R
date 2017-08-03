@@ -300,6 +300,7 @@ coxph_mv0 <- coxph(formula = Surv(a_dxage, a_dxage2, a_cens_1) ~ v029_Hspnc_or_L
 #' The variables used on our initial multivariate model
 class_mv0_tailgreps %>% paste0(collapse='|') %>% 
   grep(names(d3),val=T) -> class_mv0_exact;
+
 #' Possible variables to consider for addition
 class_mv1_candidates_exact <- c(demcols[1:3],'a_age_at_stdx'
                           ,paste0(class_locf_exact,'nona')
@@ -314,23 +315,17 @@ paste0(class_mv1_candidates_exact,collapse='+') %>%
 # expression and as elewhere in this script, the variable names will likely
 # change from time to time
 #+ message=FALSE, warning=FALSE, cache=TRUE
-sprintf(
-  # This is a complete stepAIC call, missing only the additiona candidate 
-  # variables to try. Those will go where the %s currently is. The 'lower' part
-  # of the 'scope' argument means "be willing to drop any variable completely if
-  # it does not improve model fit". The 'upper' part means "consider adding these
-  # other variables to the existing ones (where the other variables will replace
-  # %s shortly) AND also consider every possible two-way interaction between
-  # variables you keep. See what I mean when I say this will take a while?
-  # After the 'list' argument there is a 'direction' argument, and 'both' means 
-  # we will add and remove variables.
-  'stepAIC(coxph_mv0,scope = list(lower=.~1,upper=.~(.+%s)^2),direction="both")'
-  # This paste statement simply combines together the names of the additional 
-  # candidate variables generated above with a '+' between them.
-  ,paste0(class_mv1_candidates_exact,collapse='+')) %>% 
-  # Now we pipe this string to parse which turns it into a call and eval which
-  # attempts to execute that call. Good luck to us!
-  parse(text=.) %>% eval -> coxph_mv1;
+# This is a complete stepAIC call, missing only the additiona candidate 
+# variables to try. Those will go where the %s currently is. The 'lower' part
+# of the 'scope' argument means "be willing to drop any variable completely if
+# it does not improve model fit". The 'upper' part means "consider adding these
+# other variables to the existing ones (where the other variables will replace
+# %s shortly) AND also consider every possible two-way interaction between
+# variables you keep. See what I mean when I say this will take a while?
+# After the 'list' argument there is a 'direction' argument, and 'both' means 
+# we will add and remove variables.
+coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
+                     ,direction="both",trace=0);
 
 #' ## Here comes another crazy part. Resampling.
 #' 

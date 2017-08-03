@@ -69,8 +69,9 @@ class_drugs_tailgreps <-c(
   '_EVRLMS_P_TBS$','_HDRCDN_ACTMNPHN$','_MTCLPRMD_TBS$'
   ,'_ONDNSTRN_TBS$','_PZPNB_HCL_TBS$','_SNTNB_MLT$'
   ,'_STNT_MG_P_CPS$','_AM_ANTMCRBLS$','_ANTNPLSTCS$'
-  ,'_ANTNPLSTC_OTHR$','_NRVS_MDCTNS$','_CN_ANLGSCS$'
-  ,'_OPD_ANLGSCS$','_GSTRNTSTNL$','_G_LXTVS$'
+  ,'_ANTNPLSTC_OTHR$' ,'_NRVS_MDCTNS$' 
+  ,'_CN_ANLGSCS$' ,'_OPD_ANLGSCS$'
+  ,'_GSTRNTSTNL$','_G_LXTVS$'
   ,'_LXTVS_OTHR$','_HRMNS_SNTHTCS_MDFRS$');
 #' ## Factors and indicators
 #' 
@@ -87,4 +88,6 @@ class_mult_exact <- c('language_cd','race_cd');
 #' 
 class_mv0_tailgreps <- c('_Hspnc_or_Ltn$'
                          ,'_CN_ANLGSCS$'
+                         #,'_OPD_ANLGSCS$'
                          ,'_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_numnona$');
+class_mvexclude_tailgreps <- c('_OPD_ANLGSCS$','_NRVS_MDCTNS$');
