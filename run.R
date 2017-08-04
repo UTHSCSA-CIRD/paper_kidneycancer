@@ -305,7 +305,9 @@ class_mv1_candidates_exact <- c(demcols[2:3],'a_age_at_stdx'
 class_mv1_candidates_exact <- setdiff(class_mv1_candidates_exact
                                       ,c(class_mv0_exact,class_mvexclude_exact));
 paste0(class_mv1_candidates_exact,collapse='+') %>% 
-  sprintf('.~(.+%s)^2',.) %>% formula -> frm_mv1_upper;
+  sprintf('.~.+%s',.) %>% formula -> frm_mv1_upper;
+paste0(class_mv1_candidates_exact,collapse='+') %>% 
+  sprintf('.~(.+%s)^2',.) %>% formula -> frm_mv2_upper;
 #' Fire up stepAIC and get a cup of coffee!
 # We use sprintf to construct the expression out of a fixed string and 
 # a pasted-together vector of variable names, because it's a very long
@@ -327,6 +329,19 @@ coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
                        cat(' ',aa);
                        with(xx,list(AIC=aa,call=call,concordance=concordance))
                        });
+#' Survival plot for mv1
+pred_mv1 <- predict(coxph_mv1,d3,collapse = d3$patient_num);
+#autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
+autoplot(update(sf0,.~pred_mv1>median(pred_mv1)))
+;
+
+coxph_mv2 <- stepAIC(coxph_mv1,scope = list(lower=.~1,upper=frm_mv2_upper)
+                     ,direction="both",trace=0
+                     ,keep=function(xx,aa) {
+                       cat(' ',aa);
+                       with(xx,list(AIC=aa,call=call,concordance=concordance))
+                     });
+
 
 #' ## Here comes another crazy part. Resampling.
 #' 
@@ -344,7 +359,7 @@ if(file.exists('aic_resampled00.rdata')) load('aic_resampled00.rdata') else {
   current_ii <- 1;
 }
 
-expr_aic <- parse(text = 'stepAIC(update(coxph_mv0,data=d3[rows_resampled[[0]],])
+expr_aic <- parse(text = 'stepAIC(update(coxph_mv1,data=d3[rows_resampled[[0]],])
              ,scope = list(lower=.~1,upper=frm_mv1_upper)
              ,direction="both", trace=0
              ,keep=function(xx,aa) 
