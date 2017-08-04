@@ -355,24 +355,22 @@ if(current_ii <= length(rows_resampled)) for(ii in (current_ii+1):length(rows_re
   try(eval(expr_aic),silent = T) -> aic_resampled[[ii]];
   cat('.');
   if(file.exists('patch0.R')) source('patch0.R',local=T);
-  if(!ii%%3 | file.exists('savenow')) {
+  if(!ii%%3 | file.exists('savenow' | ii == length(rows_resampled))) {
     current_ii <- ii; cat('saving on iteration ',ii,'\n');
     save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata');
     unlink('savenow');
     };
 }
 
+if(exists('resampled')) resampled <- c(resampled,'aic_resampled00.rdata') else resampled <- 'aic_resampled00.rdata';
+
+summrsmp <- summ_aicresamp(resampled);
 #' How often each term was selected
-lapply(aic_resampled,function(xx) tidy(xx)$term) %>% unlist %>% table %>% 
-  sort(decreasing = T) -> aic_terms;
 .oldoma <- par()$oma; par(oma=c(30,0,0,0));
-plot(aic_terms,type='h',las=3,lwd=4);
+plot(summrsmp$trmcounts,type='h',las=3,lwd=4);
 par(oma=.oldoma);
-#' Parameter estimates
-aic_tmx <- matrix(0,nrow=length(aic_resampled),ncol=length(aic_terms));
-colnames(aic_tmx) <- names(aic_terms);
-.tempterms <- lapply(aic_resampled,function(xx) tidy(xx)[c('term','estimate')]);
-for(ii in seq_len(nrow(aic_tmx))) aic_tmx[ii,.tempterms[[ii]]$term] <- .tempterms[[ii]]$estimate;
+
+
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
 #' 

@@ -113,3 +113,41 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
     }
   }
 } 
+
+#' ## Functions unlikely to be useful in contexts other than this one
+#'
+#' Takes a vector of filenames, each of which is a saved R environment from a
+#' session where stepAIC was run on resampled data and return a frequency table
+#' as well as a table of parameter estimates
+#' @param xx    character vector of filenames/paths of rdata files
+#' @param type  the class that a non-error fit should have (default: 'coxph') 
+summ_aicresamp <- function(xx,type='coxph',...){
+  yy <- sapply(xx,function(xx) new.env());
+  sapply(xx,function(xx) load(xx,envir=yy[[xx]]));
+  # Which model-fits ran and returned results without error?
+  sapply(yy,function(xx) sapply(xx$aic_resampled,class)=='coxph') -> goodones;
+  # Combine the good fits into one list
+  mapply(function(aa,bb) aa$aic_resampled[bb],yy,goodones) %>% do.call(c,.) -> fits;
+  # Extract the term tables from this list
+  sapply(fits, function(xx) tidy(xx),simplify=F) -> trms;
+  # Tally up frequency of each term
+  sapply(trms,`[`,,1) %>% unlist %>% table %>% sort(decr=T) -> trmcounts;
+  # Create matrix of parameter estimates
+  tmx <- matrix(0,nrow=length(fits),ncol=length(trmcounts));
+  colnames(tmx) <- names(trmcounts);
+  for(ii in seq(nrow(tmx))) tmx[ii,trms[[ii]]$term] <- trms[[ii]]$estimate;
+  apply(tmx,2,function(xx) c(
+    quantile(xx,c(.025,.25,.5,.75,.975),na.rm=T)
+    ,mean=mean(xx,na.rm=T)
+    ,se=sd(xx,na.rm=T)
+    ,t=mean(xx,na.rm=T)/sd(xx,na.rm=T)
+    ,npresent = sum(abs(xx)>0,na.rm=T)
+    ,notna=sum(!is.na(xx)))) -> aggregates
+  # Save the entries from rows_resampled for which models failed to fit, and the 
+  # ones where they did not fail.
+  do.call(c,mapply(function(aa,bb) aa$rows_resampled[!bb],yy,goodones)) -> badoffsets;
+  do.call(c,mapply(function(aa,bb) aa$rows_resampled[bb],yy,goodones)) -> goodoffsets;
+  out <- list(trmcounts=trmcounts,tmx=tmx,aggregates=aggregates
+              ,badoffsets=badoffsets,goodoffsets=goodoffsets);
+  invisible(out);
+}
