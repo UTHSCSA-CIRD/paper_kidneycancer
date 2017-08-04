@@ -331,9 +331,7 @@ coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
                        });
 #' Survival plot for mv1
 pred_mv1 <- predict(coxph_mv1,d3,collapse = d3$patient_num);
-#autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
-autoplot(update(sf0,.~pred_mv1>median(pred_mv1)))
-;
+autoplot(update(sf0,.~pred_mv1>median(pred_mv1)));
 
 coxph_mv2 <- stepAIC(coxph_mv1,scope = list(lower=.~1,upper=frm_mv2_upper)
                      ,direction="both",trace=0
@@ -341,6 +339,9 @@ coxph_mv2 <- stepAIC(coxph_mv1,scope = list(lower=.~1,upper=frm_mv2_upper)
                        cat(' ',aa);
                        with(xx,list(AIC=aa,call=call,concordance=concordance))
                      });
+#' Survival plot for mv2
+pred_mv2 <- predict(coxph_mv2,d3,collapse = d3$patient_num);
+autoplot(update(sf0,.~pred_mv2>median(pred_mv2)));
 
 
 #' ## Here comes another crazy part. Resampling.
