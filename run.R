@@ -192,7 +192,7 @@ d5$a_dxage3 <- pmin(d5$a_dxage,lastevent);
 #' ##Plotting the survival curve using the package "ggfortify"
 #'
 #' Base survfit object, for plotting
-# sf0 <-survfit(Surv(a_dxage3,a_cens_1)~1,d5);
+sf0 <-survfit(Surv(a_dxage3,a_cens_1)~1,d5);
 
 #' ## Results
 #' 
