@@ -192,7 +192,7 @@ d5$a_dxage3 <- pmin(d5$a_dxage,lastevent);
 #' ##Plotting the survival curve using the package "ggfortify"
 #'
 #' Base survfit object, for plotting
-sf0 <-survfit(Surv(a_dxage,a_cens_1)~1,d5);
+# sf0 <-survfit(Surv(a_dxage3,a_cens_1)~1,d5);
 
 #' ## Results
 #' 
@@ -369,7 +369,6 @@ summrsmp <- summ_aicresamp(resampled);
 .oldoma <- par()$oma; par(oma=c(30,0,0,0));
 plot(summrsmp$trmcounts,type='h',las=3,lwd=4);
 par(oma=.oldoma);
-
 
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
