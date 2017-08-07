@@ -86,8 +86,9 @@ class_mult_exact <- c('language_cd','race_cd');
 #' 
 #' These were found in an ad-hoc way...
 #' 
-class_mv0_tailgreps <- c('_Hspnc_or_Ltn$'
-                         ,'_CN_ANLGSCS$'
+class_mv0_tailgreps <- c();
+#<- c('_Hspnc_or_Ltn$'
+#                         ,'_CN_ANLGSCS$'
                          #,'_OPD_ANLGSCS$'
-                         ,'_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_numnona$');
+#                         ,'_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_numnona$');
 class_mvexclude_tailgreps <- c('_OPD_ANLGSCS$','_NRVS_MDCTNS$');
