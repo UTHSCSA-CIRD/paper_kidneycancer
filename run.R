@@ -351,6 +351,13 @@ coxph_mv2 <- stepAIC(coxph_mv1,scope = list(lower=.~1,upper=frm_mv2_upper)
 #' Survival plot for mv2
 pred_mv2 <- predict(coxph_mv2,d3,collapse = d3$patient_num);
 autoplot(update(sf0,.~pred_mv2>median(pred_mv2)));
+#' ### To-do
+#' 
+#' * Optional reusing of all stepAIC parts
+#' * Re-pull the patient data with following added variables:
+#'   * DX_IDs for metastasis
+#'   * More current vital statuses (and dates)
+#'   * Acquired absence of organ ICD codes and nephrectomy surgery codes
 
 
 #' ## Here comes another crazy part. Resampling.
