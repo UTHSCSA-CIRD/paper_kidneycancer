@@ -329,6 +329,15 @@ coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
                        cat(' ',aa);
                        with(xx,list(AIC=aa,call=call,concordance=concordance))
                        });
+
+# Names for the terms 
+vars_mv1 <- summary(coxph_mv1)$coef %>% rownames() %>% submulti(m0) %>% 
+  gsub(pattern='nona$', replace = '',.) %>% gsub(pattern='(TRUE|No)$',replace = '  (\\1)');
+
+#New table for coxph_mv1
+stargazer(coxph_mv1, covariate.labels = vars_mv1, 
+  dep.var.labels = 'Time in days until metastasis',star.cutoffs=c(0.05,0.01,1e-6),type='text');
+
 #' Survival plot for mv1
 pred_mv1 <- predict(coxph_mv1,d3,collapse = d3$patient_num);
 autoplot(update(sf0,.~pred_mv1>median(pred_mv1)));
