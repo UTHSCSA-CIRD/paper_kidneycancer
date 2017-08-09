@@ -353,11 +353,18 @@ pred_mv2 <- predict(coxph_mv2,d3,collapse = d3$patient_num);
 autoplot(update(sf0,.~pred_mv2>median(pred_mv2)));
 #' ### To-do
 #' 
+#' * Additional temporal variable: time until either event or `lastevent`
 #' * Optional reusing of all stepAIC parts
+#' * Manually disambiguate the candidate variables
+#' * Try Coxnet
+#' * Create patient-set for development sample
+#' * Use patient-matcher to find controls for all KC cases (demographics only)
 #' * Re-pull the patient data with following added variables:
 #'   * DX_IDs for metastasis
 #'   * More current vital statuses (and dates)
 #'   * Acquired absence of organ ICD codes and nephrectomy surgery codes
+#'   * ...and control patients
+#' * Plots of multiple events over time for each patient (like the i2b2 timeline)
 
 
 #' ## Here comes another crazy part. Resampling.
