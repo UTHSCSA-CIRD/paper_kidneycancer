@@ -27,6 +27,7 @@ source('./functions.R');
 #' ## Set variables, 1st pass
 session <- 'session.rdata';
 #' The rebuild vector is going to c
+#' possible non mutually exclusive values for `rebuild`: `d0`, `aic00`
 rebuild <- c();
 #' ## Load data
 if(session %in% list.files()) load(session);
@@ -169,8 +170,10 @@ cox_t2_models<- lapply(cox_ph_models
                        ,update
                        ,Surv(a_dxage,a_dxage2,a_cens_1)~.-cluster(patient_num));
 
+# commenting out cox_ph_models_fraility because they are erroring, and 
+# not used for the plots anyway
 #+ warning=FALSE
-cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(xx,.~.-cluster(patient_num)+frailty(patient_num)));
+#cox_ph_models_fraility<-sapply(cox_ph_models,function(xx) update(xx,.~.-cluster(patient_num)+frailty(patient_num)));
 #' Create univariate models with numeric predictors
 cox_ph_models_numeric <- sapply(paste0(class_locf_exact,'nona')
                          ,function(xx) sprintf('update(cox_univar_numeric,.~%s)',xx) %>% 
@@ -376,38 +379,40 @@ autoplot(update(sf0,.~pred_mv2>median(pred_mv2)));
 #' (i.e. for those patients we will keep all visits, but not all patients will be
 #' part of all samples). We will do this many times and run stepAIC each time. It
 #' will take a while.
-if(file.exists('aic_resampled00.rdata')) load('aic_resampled00.rdata') else {
-  split(seq(nrow(d3)),d3$patient_num) %>% 
-    replicate(n=20,expr=unlist(sample(.,length(.),rep=T))) -> rows_resampled;
-  aic_resampled <- list();
-  current_ii <- 1;
+if('aic00' %in% rebuild) {
+  if(file.exists('aic_resampled00.rdata')) load('aic_resampled00.rdata') else {
+    split(seq(nrow(d3)),d3$patient_num) %>% 
+      replicate(n=20,expr=unlist(sample(.,length(.),rep=T))) -> rows_resampled;
+    aic_resampled <- list();
+    current_ii <- 1;
+  }
+  
+  expr_aic <- parse(text = 'stepAIC(update(coxph_mv1,data=d3[rows_resampled[[0]],])
+               ,scope = list(lower=.~1,upper=frm_mv1_upper)
+               ,direction="both", trace=0
+               ,keep=function(xx,aa) 
+                    with(xx,list(AIC=aa,call=call,concordance=concordance)))')[[1]];
+  
+  if(current_ii <= length(rows_resampled)) for(ii in (current_ii+1):length(rows_resampled)){
+    expr_aic[[2]][[3]][[3]][[3]]<-ii;
+    try(eval(expr_aic),silent = T) -> aic_resampled[[ii]];
+    cat('.');
+    if(file.exists('patch0.R')) source('patch0.R',local=T);
+    if(!ii%%3 || file.exists('savenow') || ii == length(rows_resampled)) {
+      current_ii <- ii; cat('saving on iteration ',ii,'\n');
+      save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata');
+      unlink('savenow');
+      };
+  }
+  
+  if(exists('resampled')) resampled <- c(resampled,'aic_resampled00.rdata') else resampled <- 'aic_resampled00.rdata';
+  
+  summrsmp <- summ_aicresamp(resampled);
+  # How often each term was selected
+  .oldoma <- par()$oma; par(oma=c(30,0,0,0));
+  plot(summrsmp$trmcounts,type='h',las=3,lwd=4);
+  par(oma=.oldoma);
 }
-
-expr_aic <- parse(text = 'stepAIC(update(coxph_mv1,data=d3[rows_resampled[[0]],])
-             ,scope = list(lower=.~1,upper=frm_mv1_upper)
-             ,direction="both", trace=0
-             ,keep=function(xx,aa) 
-                  with(xx,list(AIC=aa,call=call,concordance=concordance)))')[[1]];
-
-if(current_ii <= length(rows_resampled)) for(ii in (current_ii+1):length(rows_resampled)){
-  expr_aic[[2]][[3]][[3]][[3]]<-ii;
-  try(eval(expr_aic),silent = T) -> aic_resampled[[ii]];
-  cat('.');
-  if(file.exists('patch0.R')) source('patch0.R',local=T);
-  if(!ii%%3 || file.exists('savenow') || ii == length(rows_resampled)) {
-    current_ii <- ii; cat('saving on iteration ',ii,'\n');
-    save(rows_resampled,current_ii,aic_resampled,file='aic_resampled00.rdata');
-    unlink('savenow');
-    };
-}
-
-if(exists('resampled')) resampled <- c(resampled,'aic_resampled00.rdata') else resampled <- 'aic_resampled00.rdata';
-
-summrsmp <- summ_aicresamp(resampled);
-#' How often each term was selected
-.oldoma <- par()$oma; par(oma=c(30,0,0,0));
-plot(summrsmp$trmcounts,type='h',las=3,lwd=4);
-par(oma=.oldoma);
 
 #' Note that you can also generate a big version of any of these manually
 #' by doing e.g. `plots_cph_numeric[[10]]` or `plots_cph_numeric[["AST SerPl-cCnc (1920-8)"]]`
