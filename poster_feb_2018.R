@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo=F,warning = F,message=F);
 source('global.R');
 #' Report date: `r date()`.
 #'
-# Revision: `r gitstamp()`.
+#' Revision: `r gitstamp()`.
 #'
 #' Data file: `r inputdata`.
 #' 
