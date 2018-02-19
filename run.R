@@ -301,13 +301,19 @@ paste0(class_mv1_candidates_exact,collapse='+') %>%
 # variables you keep. See what I mean when I say this will take a while?
 # After the 'list' argument there is a 'direction' argument, and 'both' means 
 # we will add and remove variables.
-if(any(c('aicmv02','aicmv01') %in% rebuild)){
+if('aicmv01' %in% rebuild)){
   coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
                        ,direction="both",trace=0
                        ,keep=function(xx,aa) {
                          cat(' ',aa);
                          with(xx,list(AIC=aa,call=call,concordance=concordance))
                          });
+  .temp_coxph_mv1_call <- coxph_mv1$call;
+  dump('.temp_coxph_mv1_call',file='cached_mv1.R');
+} else {
+  source('cached_mv1.R');
+  coxph_mv1 <- eval(.temp_coxph_mv1_call);
+}
   
   # Names for the terms 
   vars_mv1 <- summary(coxph_mv1)$coef %>% rownames() %>% submulti(m0) %>% 
@@ -321,7 +327,6 @@ if(any(c('aicmv02','aicmv01') %in% rebuild)){
   #' Survival plot for mv1
   pred_mv1 <- predict(coxph_mv1,d3,collapse = d3$patient_num);
   autoplot(update(sf0,.~pred_mv1>median(pred_mv1)));
-}
 
 if('aicmv02' %in% rebuild){
   coxph_mv2 <- stepAIC(coxph_mv1,scope = list(lower=.~1,upper=frm_mv2_upper)

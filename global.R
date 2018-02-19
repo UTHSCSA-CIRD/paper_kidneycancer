@@ -28,5 +28,6 @@ source('./functions.R');
 session <- 'session.rdata';
 #' The rebuild vector is going to c
 #' possible non mutually exclusive values for `rebuild`: `d0`, `aic00`, `aicmv02`
-rebuild <- c('aicmv01');
+#' and `aicmv01`
+rebuild <- c();
 #' ## Load data
