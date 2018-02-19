@@ -52,7 +52,7 @@ sapply(class_hisp_exact
 autoplot(update(sf0,.~pred_hisp)
          ,main='Ethnicity as Risk Factor for Progression') +
   scale_color_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic'));
-tidy(cox_t2_demog[[class_hisp_exact[1]]])[,1:5] %>% t %>% data.frame %>% 
+tidy(cox_t2_demog[[class_hisp_exact[1]]])[,2:5] %>% t %>% data.frame %>% 
   knitr::kable(format='markdown');
 
 # We will go for the following:
@@ -68,7 +68,7 @@ for(ii in seq_along(feb2018_pres)){
   iicode <- feb2018_prescodes[ii];
   print(plots_cph_numeric[[iiname]] + ggtitle(iiname) +
     scale_color_discrete('Lab Value',labels=c('Low','High')));
-  tidy(cox_ph_models_numeric[[iicode]])[,1:5] %>% t %>% 
+  tidy(cox_ph_models_numeric[[iicode]])[,2:5] %>% t %>% 
     knitr::kable(format='markdown') %>% print;
   cat('---\n\n');
 }
