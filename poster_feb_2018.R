@@ -53,7 +53,7 @@ autoplot(update(sf0,.~pred_hisp)
          ,main='Ethnicity as Risk Factor for Progression') +
   scale_color_discrete('Ethnicity\n(N=1162)'
                        ,labels=c('Non Hispanic','Hispanic'));
-tidy(cox_t2_demog[[class_hisp_exact[1]]])[,2:5] %>% t %>% data.frame %>% 
+tidy(cox_t2_demog[[class_hisp_exact[1]]])[,2:5] %>% t %>% 
   knitr::kable(format='markdown');
 
 # We will go for the following:
@@ -67,8 +67,11 @@ feb2018_prescodes<-c('v038_Pltlt_At_GENERIC_KUH_COMPONENT_ID_5341_numnona'
 for(ii in seq_along(feb2018_pres)){
   iiname <- feb2018_pres[ii];
   iicode <- feb2018_prescodes[ii];
+  iinums <- table(d5[[gsub('nona$','lp',iicode)]])[c('FALSE','TRUE')];
   print(plots_cph_numeric[[iiname]] + ggtitle(iiname) +
-    scale_color_discrete('Vital or Lab Value\n(N=1162)',labels=c('Low','High')));
+    scale_color_discrete('Vital or Lab Value' #\n(N=1162)'
+                         ,labels=sprintf(c('Low (N=%s)','High (N=%s)')
+                                         ,iinums)));
   tidy(cox_ph_models_numeric[[iicode]])[,2:5] %>% t %>% 
     knitr::kable(format='markdown') %>% print;
   cat('\n\n');
