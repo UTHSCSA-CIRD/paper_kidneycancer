@@ -301,35 +301,39 @@ paste0(class_mv1_candidates_exact,collapse='+') %>%
 # variables you keep. See what I mean when I say this will take a while?
 # After the 'list' argument there is a 'direction' argument, and 'both' means 
 # we will add and remove variables.
-coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
-                     ,direction="both",trace=0
-                     ,keep=function(xx,aa) {
-                       cat(' ',aa);
-                       with(xx,list(AIC=aa,call=call,concordance=concordance))
+if(any(c('aicmv02','aicmv01') %in% rebuild)){
+  coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
+                       ,direction="both",trace=0
+                       ,keep=function(xx,aa) {
+                         cat(' ',aa);
+                         with(xx,list(AIC=aa,call=call,concordance=concordance))
+                         });
+  
+  # Names for the terms 
+  vars_mv1 <- summary(coxph_mv1)$coef %>% rownames() %>% submulti(m0) %>% 
+    gsub(pattern='nona$', replace = '',.) %>% gsub(pattern='(TRUE|No)$',replace = '  (\\1)');
+  
+  #New table for coxph_mv1
+  #stargazer(coxph_mv1, covariate.labels = vars_mv1, 
+  #  dep.var.labels = 'Time in days until metastasis',star.cutoffs=c(0.05,0.01,1e-6),type='text');
+  tidy(coxph_mv1)[,1:5];
+  
+  #' Survival plot for mv1
+  pred_mv1 <- predict(coxph_mv1,d3,collapse = d3$patient_num);
+  autoplot(update(sf0,.~pred_mv1>median(pred_mv1)));
+}
+
+if('aicmv02' %in% rebuild){
+  coxph_mv2 <- stepAIC(coxph_mv1,scope = list(lower=.~1,upper=frm_mv2_upper)
+                       ,direction="both",trace=0
+                       ,keep=function(xx,aa) {
+                         cat(' ',aa);
+                         with(xx,list(AIC=aa,call=call,concordance=concordance))
                        });
-
-# Names for the terms 
-vars_mv1 <- summary(coxph_mv1)$coef %>% rownames() %>% submulti(m0) %>% 
-  gsub(pattern='nona$', replace = '',.) %>% gsub(pattern='(TRUE|No)$',replace = '  (\\1)');
-
-#New table for coxph_mv1
-#stargazer(coxph_mv1, covariate.labels = vars_mv1, 
-#  dep.var.labels = 'Time in days until metastasis',star.cutoffs=c(0.05,0.01,1e-6),type='text');
-tidy(coxph_mv1)[,1:5];
-
-#' Survival plot for mv1
-pred_mv1 <- predict(coxph_mv1,d3,collapse = d3$patient_num);
-autoplot(update(sf0,.~pred_mv1>median(pred_mv1)));
-
-coxph_mv2 <- stepAIC(coxph_mv1,scope = list(lower=.~1,upper=frm_mv2_upper)
-                     ,direction="both",trace=0
-                     ,keep=function(xx,aa) {
-                       cat(' ',aa);
-                       with(xx,list(AIC=aa,call=call,concordance=concordance))
-                     });
-#' Survival plot for mv2
-pred_mv2 <- predict(coxph_mv2,d3,collapse = d3$patient_num);
-autoplot(update(sf0,.~pred_mv2>median(pred_mv2)));
+  #' Survival plot for mv2
+  pred_mv2 <- predict(coxph_mv2,d3,collapse = d3$patient_num);
+  autoplot(update(sf0,.~pred_mv2>median(pred_mv2)));
+}
 #' ### To-do
 #' 
 #' * Additional temporal variable: time until either event or `lastevent`
@@ -443,7 +447,6 @@ if('aic00' %in% rebuild) {
 #' so do `foo(baz[2])` and `foo(baz[3])` then the next step in testing might be
 # sapply(baz[1:3], foo)
 
-#' 
 #rebuild<-c();
 #save.image(session);
 

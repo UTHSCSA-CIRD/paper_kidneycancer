@@ -27,6 +27,6 @@ source('./functions.R');
 #' ## Set variables, 1st pass
 session <- 'session.rdata';
 #' The rebuild vector is going to c
-#' possible non mutually exclusive values for `rebuild`: `d0`, `aic00`
-rebuild <- c();
+#' possible non mutually exclusive values for `rebuild`: `d0`, `aic00`, `aicmv02`
+rebuild <- c('aicmv01');
 #' ## Load data
