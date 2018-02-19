@@ -200,9 +200,9 @@ sf0 <-survfit(Surv(a_dxage3,a_cens_1)~1,d5);
 #' ## Results
 #' 
 #' frailty
-results_con_wald_frail <- sapply(cox_ph_models_fraility
-                                 ,function(xx) 
-                                   with(summary(xx),c(concordance,logtest))) %>% t;
+#results_con_wald_frail <- sapply(cox_ph_models_fraility
+#                                 ,function(xx) 
+#                                   with(summary(xx),c(concordance,logtest))) %>% t;
 #' cluster
 results_con_wald_cluster <- sapply(cox_ph_models
                                    ,function(xx) 
@@ -218,7 +218,7 @@ results_con_wald_numeric <- sapply(cox_ph_models_numeric
 
 #' New Rownames for the fraility and cluster table
 rownames(results_con_wald_t2) <- 
-  rownames(results_con_wald_frail) <- 
+  #rownames(results_con_wald_frail) <- 
   rownames(results_con_wald_cluster) <- 
   submulti(gsub('_vf$','_num'
                 ,rownames(results_con_wald_cluster)),m0[,1:2],method = 'exact');
@@ -470,3 +470,9 @@ if('aic00' %in% rebuild) {
 #' 
 #rebuild<-c();
 #save.image(session);
+
+#' TODO:
+#' * Select most interpretable univariate plots, do tables
+#' * Hispanic plot, with table
+#' * MV plot
+#' * Create demographic table Hisp vs non-Hisp
