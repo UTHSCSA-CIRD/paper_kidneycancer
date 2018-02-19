@@ -17,7 +17,7 @@ source('global.R');
 #' Metadata file: `r inputmeta`
 #' 
 #' 
-# source_run, cache=TRUE
+#+ source_run, cache=TRUE
 source('run.R');
 #' 
 ## Let's try printing out the tables of concordances and goodness-of-fit
@@ -52,7 +52,8 @@ source('run.R');
 autoplot(update(sf0,.~pred_hisp)
          ,main='Ethnicity as Risk Factor for Progression') +
   scale_color_discrete('Ethnicity' #\n(N=1162)'
-                       ,labels=c('Non Hispanic','Hispanic'));
+                       ,labels=sprintf(c('Non Hispanic (N=%s)','Hispanic (N=%s)')
+                                       ,table(d5[[class_hisp_exact]])[c('FALSE','TRUE')]));
 tidy(cox_t2_demog[[class_hisp_exact[1]]])[,2:5] %>% t %>% 
   knitr::kable(format='markdown');
 
