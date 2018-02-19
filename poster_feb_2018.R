@@ -16,7 +16,7 @@ source('global.R');
 #' 
 #' Metadata file: `r inputmeta`
 #' 
-# cache=TRUE
+#+ source_run, cache=TRUE
 source('run.R');
 #' ---
 #' 
@@ -40,7 +40,7 @@ source('run.R');
 # 
 #' Hispanic ethnicity, as  predictor in an interval-censored model
 #' 
-#+ results='asis'
+#+ startplots, results='asis'
 sapply(class_hisp_exact
        ,function(xx) stargazer(cox_t2_demog[[xx]]
                                ,type=if(interactive()) 'text' else 'html')) -> .junk;
@@ -77,6 +77,7 @@ for(ii in seq_along(feb2018_pres)){
 #' 
 #' Demographic Summary
 #' 
+#+ demog_table
 class_mainvars_exact <- c('sex_cd','a_cens_1','a_age_at_stdx',class_hisp_exact
                           ,grep('_Pltlt_At_GENERIC_KUH_COMPONENT_ID_5341_num$|_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_num$|_Bd_Ms_Indx_num$',names(d5),val=T));
                           
@@ -88,8 +89,10 @@ mainvars_nicelabels <- submulti(class_mainvars_exact
 hispanic_nicelabel <- submulti(class_hisp_exact,m0[,1:2]);
 tableone::CreateTableOne(data=setNames(d5[,class_mainvars_exact],mainvars_nicelabels)
                          ,vars=setdiff(mainvars_nicelabels,hispanic_nicelabel)
-                         ,strata=hispanic_nicelabel,test=F) %>% 
-  print(printToggle=F) %>% knitr::kable(format='markdown');
+                         ,strata=hispanic_nicelabel) %>% 
+  print(printToggle=F) %>% data.frame %>% 
+  setNames(c('Non Hispanic','Hispanic')) %>% 
+  knitr::kable(format='markdown');
 #New table for coxph_mv1
 #stargazer(coxph_mv1, covariate.labels = vars_mv1, 
 #  dep.var.labels = 'Time in days until metastasis',star.cutoffs=c(0.05,0.01,1e-6),type='text');
