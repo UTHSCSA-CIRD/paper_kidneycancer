@@ -16,11 +16,11 @@ source('global.R');
 #' 
 #' Metadata file: `r inputmeta`
 #' 
-#+ source_run, cache=TRUE
+# source_run, cache=TRUE
 source('run.R');
 #' ---
 #' 
-##' Let's try printing out the tables of concordances and goodness-of-fit
+## Let's try printing out the tables of concordances and goodness-of-fit
 # #' 
 # #+ results='asis'
 # if(!interactive()){
@@ -38,12 +38,12 @@ source('run.R');
 #     ,Categoric=results_con_wald_t2[rows_labs,]),type = 'html',summary = F);
 # };
 # 
-#' Hispanic ethnicity, as  predictor in an interval-censored model
+# Hispanic ethnicity, as  predictor in an interval-censored model
 #' 
 #+ startplots, results='asis'
-sapply(class_hisp_exact
-       ,function(xx) stargazer(cox_t2_demog[[xx]]
-                               ,type=if(interactive()) 'text' else 'html')) -> .junk;
+#sapply(class_hisp_exact
+#       ,function(xx) stargazer(cox_t2_demog[[xx]]
+#                               ,type=if(interactive()) 'text' else 'html')) -> .junk;
 #'
 #' ---
 #'
@@ -75,8 +75,6 @@ for(ii in seq_along(feb2018_pres)){
 #multiplot(plotlist=plots_cph_numeric[feb2018_pres],cols=1);
 #' ---
 #' 
-#' Demographic Summary
-#' 
 #+ demog_table
 class_mainvars_exact <- c('sex_cd','a_cens_1','a_age_at_stdx',class_hisp_exact
                           ,grep('_Pltlt_At_GENERIC_KUH_COMPONENT_ID_5341_num$|_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_num$|_Bd_Ms_Indx_num$',names(d5),val=T));
@@ -87,12 +85,21 @@ mainvars_nicelabels <- submulti(class_mainvars_exact
                                        ,c('a_age_at_stdx','Diagnosis Age')
                                        ,c('a_cens_1','Metastasis')));
 hispanic_nicelabel <- submulti(class_hisp_exact,m0[,1:2]);
-tableone::CreateTableOne(data=setNames(d5[,class_mainvars_exact],mainvars_nicelabels)
+
+#' ### Demographic Summary
+#' 
+#' These preliminary results suggest that Hispanic patients tend to 
+#' be diagnosed at a _younger_ age and yet still progress to 
+#' metastasis at a higher rate.
+#' 
+tableone::CreateTableOne(data=setNames(mutate(d5[,class_mainvars_exact]
+                                              ,a_age_at_stdx=a_age_at_stdx/365.25)
+                                       ,mainvars_nicelabels)
                          ,vars=setdiff(mainvars_nicelabels,hispanic_nicelabel)
                          ,strata=hispanic_nicelabel) %>% 
   print(printToggle=F) %>% data.frame %>% 
-  setNames(c('Non Hispanic','Hispanic')) %>% 
-  knitr::kable(format='markdown');
+  setNames(c('Non Hispanic','Hispanic','p-value','')) %>% 
+  knitr::kable(format='markdown') %>% gsub('NA','-',.);
 #New table for coxph_mv1
 #stargazer(coxph_mv1, covariate.labels = vars_mv1, 
 #  dep.var.labels = 'Time in days until metastasis',star.cutoffs=c(0.05,0.01,1e-6),type='text');

@@ -66,7 +66,7 @@ d1 <-sapply(d1[ ,class_lab_info_exact], function(xx){
   }) %>% data.frame() %>% 
   setNames(class_lab_vf_exact) %>% cbind(d1,.);
 #' Scale the (PRESUMABLY numeric) LOCF columns
-d1[,class_locf_exact] <- lapply(d1[,class_locf_exact],scale);
+#d1[,class_locf_exact] <- lapply(d1[,class_locf_exact],scale);
 
 d1$a_metastasis <- d1[,class_diag_outcome_exact] %>% apply(1,any);
 #' # TODO: create a metastasis OR deceased indicator, the trick is we need to use
