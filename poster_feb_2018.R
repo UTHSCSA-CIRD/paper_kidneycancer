@@ -17,7 +17,7 @@ source('global.R');
 #' Metadata file: `r inputmeta`
 #' 
 #' 
-#+ source_run, cache=TRUE
+# source_run, cache=TRUE
 source('run.R');
 #' 
 ## Let's try printing out the tables of concordances and goodness-of-fit
@@ -50,14 +50,7 @@ source('run.R');
 #autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
 #+ results='asis'
 autoplot(update(sf0,.~pred_hisp)
-         ,main='Ethntableone::CreateTableOne(data=setNames(mutate(d5[,class_mainvars_exact]
-                                              ,a_age_at_stdx=a_age_at_stdx/365.25)
-         ,mainvars_nicelabels)
-         ,vars=setdiff(mainvars_nicelabels,hispanic_nicelabel)
-         ,strata=hispanic_nicelabel) %>% 
-         print(printToggle=F) %>% data.frame %>% 
-         setNames(c('Non Hispanic','Hispanic','p-value','')) %>% 
-         knitr::kable(format='markdown') %>% gsub('NA','-',.)icity as Risk Factor for Progression') +
+         ,main='Ethnicity as Risk Factor for Progression') +
   scale_color_discrete('Ethnicity\n(N=1162)'
                        ,labels=c('Non Hispanic','Hispanic'));
 tidy(cox_t2_demog[[class_hisp_exact[1]]])[,2:5] %>% t %>% data.frame %>% 
@@ -75,7 +68,7 @@ for(ii in seq_along(feb2018_pres)){
   iiname <- feb2018_pres[ii];
   iicode <- feb2018_prescodes[ii];
   print(plots_cph_numeric[[iiname]] + ggtitle(iiname) +
-    scale_color_discrete('Lab Value\n(N=1162)',labels=c('Low','High')));
+    scale_color_discrete('Vital or Lab Value\n(N=1162)',labels=c('Low','High')));
   tidy(cox_ph_models_numeric[[iicode]])[,2:5] %>% t %>% 
     knitr::kable(format='markdown') %>% print;
   cat('\n\n');
