@@ -3,32 +3,7 @@
 #' author: "Guerra, Bokov, Wilson"
 #' date: "07/10/2017"
 #' ---
-#' 
-#' ## Load libraries
-#+ warning=FALSE, message=FALSE
-rq_libs <- c('compiler'                            # just-in-time compilation
-             ,'survival','MASS','Hmisc','zoo'      # various analysis methods
-             ,'readr','dplyr','stringr','magrittr' # data manipulation & piping
-             ,'ggplot2','ggfortify','grid'         # plotting
-             ,'stargazer','broom');                # table formatting
-rq_installed <- sapply(rq_libs,require,character.only=T);
-rq_need <- names(rq_installed[!rq_installed]);
-if(length(rq_need)>0) install.packages(rq_need,repos='https://cran.rstudio.com/',dependencies = T);
-sapply(rq_need,require,character.only=T);
-#' Turn JIT to max: pre-compile all closures, `for`, `while`, and `repeat` loops
-enableJIT(3);
-#' ## Load local config file
-source('./config.R');
-source('./metadata.R');
-#'
-#' ...and local functions...
-source('./functions.R');
-#'
-#' ## Set variables, 1st pass
-session <- 'session.rdata';
-#' The rebuild vector is going to c
-#' possible non mutually exclusive values for `rebuild`: `d0`, `aic00`
-rebuild <- c();
+source('./global.R');
 #' ## Load data
 if(session %in% list.files()) load(session);
 #' Is the data already arranged in order of increasing patient_num and age? The
@@ -338,8 +313,9 @@ vars_mv1 <- summary(coxph_mv1)$coef %>% rownames() %>% submulti(m0) %>%
   gsub(pattern='nona$', replace = '',.) %>% gsub(pattern='(TRUE|No)$',replace = '  (\\1)');
 
 #New table for coxph_mv1
-stargazer(coxph_mv1, covariate.labels = vars_mv1, 
-  dep.var.labels = 'Time in days until metastasis',star.cutoffs=c(0.05,0.01,1e-6),type='text');
+#stargazer(coxph_mv1, covariate.labels = vars_mv1, 
+#  dep.var.labels = 'Time in days until metastasis',star.cutoffs=c(0.05,0.01,1e-6),type='text');
+tidy(coxph_mv1)[,1:5];
 
 #' Survival plot for mv1
 pred_mv1 <- predict(coxph_mv1,d3,collapse = d3$patient_num);
