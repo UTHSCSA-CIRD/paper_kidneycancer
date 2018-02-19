@@ -1,3 +1,12 @@
+gitstamp <- function(production=T) {
+  if(production){
+    if(length(gitdiff<-system("git update-index --refresh && git diff-index HEAD --",intern = T))!=0) stop(sprintf(
+      "\ngit message: %s\n\nYou have uncommitted changes. Please do 'git commit' and then try again."
+      ,gitdiff));
+    system("git push && git log --pretty=format:'%h' -n 1",intern=T);
+  } else system("git log --pretty=format:'%h' -n 1",intern=T);
+}
+
 #' Return a factor containing the top-N levels, and the rest binned
 #' into the specified existing or new level. That level is listed last
 #' in the resulting factor.
