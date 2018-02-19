@@ -16,6 +16,13 @@ cl_bintail <- function(xx,topn=4,binto='other'){
         ),levels=c(keep,binto)));
 }
 
+autoplot <- ggfortify:::autoplot.survfit;
+formals(autoplot)$conf.int<-F;
+formals(autoplot)$surv.size<-2;
+formals(autoplot)$xlab<-'Days Since Diagnosis';
+formals(autoplot)$ylab<-'% Metastasis Free';
+
+
 #' Take a character vector and perform multiple search-replace 
 #' operations on it.
 #' @param xx A \code{vector} of type \code{character} (required)

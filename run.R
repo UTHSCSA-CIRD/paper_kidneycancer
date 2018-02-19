@@ -174,19 +174,19 @@ sf0 <-survfit(Surv(a_dxage3,a_cens_1)~1,d5);
 
 #' ## Results
 #' 
-#' frailty
+# frailty
 #results_con_wald_frail <- sapply(cox_ph_models_fraility
 #                                 ,function(xx) 
 #                                   with(summary(xx),c(concordance,logtest))) %>% t;
-#' cluster
+#+ cluster
 results_con_wald_cluster <- sapply(cox_ph_models
                                    ,function(xx) 
                                      with(summary(xx),c(concordance,logtest))) %>% t;
-#' intervals
+#+ intervals
 results_con_wald_t2 <- sapply(cox_t2_models
                                    ,function(xx) 
                                      with(summary(xx),c(concordance,logtest))) %>% t;
-#' numeric
+#+ numeric
 results_con_wald_numeric <- sapply(cox_ph_models_numeric
                               ,function(xx) 
                                 with(summary(xx),c(concordance,logtest))) %>% t;
@@ -223,45 +223,19 @@ wilcox.test(results_con_wald_t2[rows_labs,3]
 #' discretized versus LOCF, concordance
 wilcox.test(results_con_wald_t2[rows_labs,1]
             ,results_con_wald_numeric[rows_labs,1],paired = T,conf.int=T);
-#' Let's try printing out the tables of concordances and goodness-of-fit
-#+ results='asis'
-if(!interactive()){
-  cat('\nFrailty\n');
-  stargazer(results_con_wald_frail,type = 'html');
-  cat('Cluster\n');
-  stargazer(results_con_wald_cluster,type = 'html');
-  cat('Interval\n');
-  stargazer(results_con_wald_t2,type = 'html');
-  cat('Numeric\n');
-  stargazer(results_con_wald_numeric,results_con_wald_cluster,type = 'html');
-  cat('Labs, Categoric and Numeric predictors side by side\n');
-  stargazer(data.frame(
-    Numeric=results_con_wald_numeric[rows_labs,]
-    ,Categoric=results_con_wald_t2[rows_labs,]),type = 'html',summary = F);
-};
-#' Also, here is hispanic ethnicity, as  predictor in an interval-censored model
-#+ results='asis'
-sapply(class_hisp_exact
-       ,function(xx) stargazer(cox_t2_demog[[xx]]
-                              ,type=if(interactive()) 'text' else 'html')) -> .junk;
 #' Survival plot for Hispanic vs Non Hispanic
 pred_hisp <- predict(cox_t2_demog[[class_hisp_exact[1]]],d5);
-#autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
-autoplot(update(sf0,.~pred_hisp)) +
-  scale_fill_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic')) + 
-  scale_color_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic'));
 #' ## Survival plots for numeric predictors
 #+ warning=FALSE
 plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx) 
-  sprintf("autoplot(update(sf0,.~%s),mark.time = T,xlim=c(0,1500))",xx) %>% 
+  sprintf("autoplot(update(sf0,.~%s),mark.time = T,conf.int=F,xlim=c(0,1500))",xx) %>% 
     parse(text=.) %>% eval,simplify = F) %>% 
   setNames(.,gsub('lp$','',names(.)) %>% submulti(m0[,1:2]))
 plots_cph_numeric <- sapply(names(plots_cph_numeric)
                             ,function(xx) plots_cph_numeric[[xx]] + 
-                              theme(legend.position = 'none') + 
+                              #theme(legend.position = 'none') + 
                               ggtitle(xx) + 
                               labs(x='Time in Days', y = '% Metastasis Free'),simplify=F);
-multiplot(plotlist=plots_cph_numeric,cols=5);
 #' # The Multivariable Model
 #' 
 #' Based on some ad-hoc exploration (picking the univariate predictors with the 
@@ -301,7 +275,7 @@ paste0(class_mv1_candidates_exact,collapse='+') %>%
 # variables you keep. See what I mean when I say this will take a while?
 # After the 'list' argument there is a 'direction' argument, and 'both' means 
 # we will add and remove variables.
-if('aicmv01' %in% rebuild)){
+if('aicmv01' %in% rebuild){
   coxph_mv1 <- stepAIC(coxph_mv0,scope = list(lower=.~1,upper=frm_mv1_upper)
                        ,direction="both",trace=0
                        ,keep=function(xx,aa) {
@@ -315,18 +289,12 @@ if('aicmv01' %in% rebuild)){
   coxph_mv1 <- eval(.temp_coxph_mv1_call);
 }
   
-  # Names for the terms 
-  vars_mv1 <- summary(coxph_mv1)$coef %>% rownames() %>% submulti(m0) %>% 
-    gsub(pattern='nona$', replace = '',.) %>% gsub(pattern='(TRUE|No)$',replace = '  (\\1)');
-  
-  #New table for coxph_mv1
-  #stargazer(coxph_mv1, covariate.labels = vars_mv1, 
-  #  dep.var.labels = 'Time in days until metastasis',star.cutoffs=c(0.05,0.01,1e-6),type='text');
-  tidy(coxph_mv1)[,1:5];
-  
-  #' Survival plot for mv1
-  pred_mv1 <- predict(coxph_mv1,d3,collapse = d3$patient_num);
-  autoplot(update(sf0,.~pred_mv1>median(pred_mv1)));
+# Names for the terms 
+vars_mv1 <- summary(coxph_mv1)$coef %>% rownames() %>% submulti(m0) %>% 
+  gsub(pattern='nona$', replace = '',.) %>% gsub(pattern='(TRUE|No)$',replace = '  (\\1)');
+
+#' Survival plot for mv1
+pred_mv1 <- predict(coxph_mv1,d3,collapse = d3$patient_num);
 
 if('aicmv02' %in% rebuild){
   coxph_mv2 <- stepAIC(coxph_mv1,scope = list(lower=.~1,upper=frm_mv2_upper)
