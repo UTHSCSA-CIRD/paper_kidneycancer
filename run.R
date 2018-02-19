@@ -234,8 +234,8 @@ plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx)
 plots_cph_numeric <- sapply(names(plots_cph_numeric)
                             ,function(xx) plots_cph_numeric[[xx]] + 
                               #theme(legend.position = 'none') + 
-                              ggtitle(xx) + 
-                              labs(x='Time in Days', y = '% Metastasis Free'),simplify=F);
+                              ggtitle(xx), simplify=F); # + 
+                              #labs(x='Time in Days', y = '% Metastasis Free'),simplify=F);
 #' # The Multivariable Model
 #' 
 #' Based on some ad-hoc exploration (picking the univariate predictors with the 

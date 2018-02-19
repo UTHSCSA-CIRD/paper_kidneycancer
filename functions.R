@@ -30,6 +30,7 @@ formals(autoplot)$conf.int<-F;
 formals(autoplot)$surv.size<-2;
 formals(autoplot)$xlab<-'Days Since Diagnosis';
 formals(autoplot)$ylab<-'% Metastasis Free';
+formals(autoplot)$xlim<-c(0,1500);
 
 
 #' Take a character vector and perform multiple search-replace 
