@@ -17,7 +17,7 @@ source('global.R');
 #' Metadata file: `r inputmeta`
 #' 
 #' 
-# source_run, cache=TRUE
+#+ source_run, cache=TRUE
 source('run.R');
 #' 
 ## Let's try printing out the tables of concordances and goodness-of-fit
