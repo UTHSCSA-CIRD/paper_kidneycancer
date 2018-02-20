@@ -66,7 +66,7 @@ feb2018_prescodes<-c('v038_Pltlt_At_GENERIC_KUH_COMPONENT_ID_5341_numnona'
                      ,'v002_Bd_Ms_Indx_numnona');
 #'
 #'
-#+ results='asis'
+#+ numeric_plots, results='asis'
 for(ii in seq_along(feb2018_pres)){
   iiname <- feb2018_pres[ii];
   iicode <- feb2018_prescodes[ii];
