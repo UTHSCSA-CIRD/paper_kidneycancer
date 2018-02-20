@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo=F,warning = F,message=F);
 source('global.R');
 #' Report date: `r date()`.
 #'
-# Revision: `r gitstamp()`.
+#' Revision: `r gitstamp()`.
 #'
 #' Data file: `r inputdata`.
 #' 
@@ -51,19 +51,22 @@ source('run.R');
 #+ results='asis'
 autoplot(update(sf0,.~pred_hisp)
          ,main='Ethnicity as Risk Factor for Progression') +
-  scale_color_discrete('Ethnicity' #\n(N=1162)'
+  scale_color_discrete('Ethnicity' 
                        ,labels=sprintf(c('Non Hispanic (N=%s)','Hispanic (N=%s)')
                                        ,table(d5[[class_hisp_exact]])[c('FALSE','TRUE')]));
 tidy(cox_t2_demog[[class_hisp_exact[1]]])[,2:5] %>% t %>% 
   knitr::kable(format='markdown');
-
+cat('---');
+#'
 # We will go for the following:
 feb2018_pres<- c("Platelet # Bld Auto (777-3)"
+                 , "Body Mass Index"
                  , "RDW RBC Auto-Rto (788-0)"
-                 , "Body Mass Index");
+                 );
 feb2018_prescodes<-c('v038_Pltlt_At_GENERIC_KUH_COMPONENT_ID_5341_numnona'
+                     ,'v002_Bd_Ms_Indx_numnona'
                      ,'v050_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_numnona'
-                     ,'v002_Bd_Ms_Indx_numnona');
+                     );
 #'
 #'
 #+ numeric_plots, results='asis'
@@ -77,8 +80,8 @@ for(ii in seq_along(feb2018_pres)){
                                ,labels=sprintf(c('Low (N=%s)','High (N=%s)')
                                                ,iinums)));
   tidy(cox_ph_models_numeric[[iicode]])[,2:5] %>% t %>% 
-    knitr::kable(format='markdown') %>% print;
-  cat('---\n');
+    knitr::kable(format='markdown') %>% print();
+  cat('---\n\n\n');
 }
 #multiplot(plotlist=plots_cph_numeric[feb2018_pres],cols=1);
 #' 
