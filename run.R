@@ -59,6 +59,9 @@ d1[,class_demog_exact] <- d1[,class_demog_exact] %>%
   sapply(function(xx) cl_bintail(xx,topn=2),simplify=F);
 #' ## Extract VF's for lab values and create flag columns
 #' New code for sapply lab values
+for(ii in class_locf_exact) {
+  d1[[ii]][d1[[ii]]>quantile(d1[[ii]],prob=.99999,na.rm=T)]<-NA;
+}
 
 d1 <-sapply(d1[ ,class_lab_info_exact], function(xx){
   ifelse(grepl(pattern ="\'[HL]\'",x = xx),xx,"NONE") %>% 
@@ -122,6 +125,7 @@ d4 <- mutate_all(d3[,c('patient_num',class_locf_exact)],na.locf0) %>%
 d4[,-1] <- lapply(d4[,-1],na.aggregate,median);
 #' Make the names not colide with existing ones
 names(d4)[-1] <- paste0(names(d4)[-1],'nona');
+
 #' Now mush these back into d3
 d3[,names(d4)[-1]]<-d4[,-1];
 #' ## We create out univariate baseline model to update a whole bunch of times soon
@@ -226,7 +230,7 @@ wilcox.test(results_con_wald_t2[rows_labs,1]
 #' Survival plot for Hispanic vs Non Hispanic
 pred_hisp <- predict(cox_t2_demog[[class_hisp_exact[1]]],d5);
 #' ## Survival plots for numeric predictors
-#+ warning=FALSE
+#+ iffy_plots, warning=FALSE
 plots_cph_numeric <- grep('lp$',names(d5),val=T) %>% sapply(function(xx) 
   sprintf("autoplot(update(sf0,.~%s),mark.time = T,conf.int=F,xlim=c(0,1500))",xx) %>% 
     parse(text=.) %>% eval,simplify = F) %>% 
@@ -236,6 +240,16 @@ plots_cph_numeric <- sapply(names(plots_cph_numeric)
                               #theme(legend.position = 'none') + 
                               ggtitle(xx), simplify=F); # + 
                               #labs(x='Time in Days', y = '% Metastasis Free'),simplify=F);
+#' Here we split up the data directly by upper half of variable vs. lower half
+#+ varsplit, warning=FALSE
+sfits_numeric <- sapply(class_locf_exact
+                        ,function(xx) update(sf0
+                                             ,formula(sprintf(".~discr(%snona)",xx)))
+                        ,simplify=F);
+sfplots_numeric <- mapply(function(aa,bb) autoplot(aa,surv.size = NULL) + 
+                            ggtitle(bb)
+                          ,sfits_numeric
+                          ,(submulti(class_locf_exact,m0[,1:2])),SIMPLIFY = F);
 #' # The Multivariable Model
 #' 
 #' Based on some ad-hoc exploration (picking the univariate predictors with the 

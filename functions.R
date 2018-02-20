@@ -25,6 +25,25 @@ cl_bintail <- function(xx,topn=4,binto='other'){
         ),levels=c(keep,binto)));
 }
 
+#' Function to concisely split numeric variables into ordered
+#' bins with pre-determined labels
+discr <- function(xx,nn=2:5,labels,ordered=F){
+  nn <- floor(nn[1]); 
+  if(!is.numeric(xx)) stop('xx must be numeric');
+  if(nn<2|nn>5) stop('nn must be between 2 and 5');
+  if(missing(labels)||length(labels)<nn){
+    labs <- switch(paste0('q',nn)
+                   ,q2=c('Low','High')
+                   ,q3=c('Low','Med','High')
+                   ,q4=c('Low','Med_Low','Med_High','High')
+                   ,q5=c('Lowest','Low','Med','High','Highest')
+                     );
+  } else labs <- labels[1:nn];
+  brks <- quantile(xx,seq(0,1,len=nn+1),na.rm=T);
+  oo<-cut(xx,breaks = brks,include.lowest = T,labels = labs
+          ,ordered_result = ordered);
+}
+
 autoplot <- ggfortify:::autoplot.survfit;
 formals(autoplot)$conf.int<-F;
 formals(autoplot)$surv.size<-2;
