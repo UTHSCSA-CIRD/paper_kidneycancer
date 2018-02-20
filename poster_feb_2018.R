@@ -64,6 +64,11 @@ feb2018_pres<- c("Platelet # Bld Auto (777-3)"
 feb2018_prescodes<-c('v038_Pltlt_At_GENERIC_KUH_COMPONENT_ID_5341_numnona'
                      ,'v050_RDW_RBC_At_Rt_GENERIC_KUH_COMPONENT_ID_5629_numnona'
                      ,'v002_Bd_Ms_Indx_numnona');
+#'
+feb2018_pres;
+#'
+feb2018_prescodes;
+#'
 
 for(ii in seq_along(feb2018_pres)){
   iiname <- feb2018_pres[ii];
