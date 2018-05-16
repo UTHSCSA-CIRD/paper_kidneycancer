@@ -8,6 +8,7 @@
 #+ warning=FALSE, message=FALSE
 rq_libs <- c('compiler'                            # just-in-time compilation
              ,'survival','MASS','Hmisc','zoo'      # various analysis methods
+             ,'NPHMC'                       # power analysis
              ,'readr','dplyr','stringr','magrittr' # data manipulation & piping
              ,'ggplot2','ggfortify','grid'         # plotting
              ,'stargazer','broom');                # table formatting
@@ -269,7 +270,7 @@ sapply(class_hisp_exact
 #' Survival plot for Hispanic vs Non Hispanic
 pred_hisp <- predict(cox_t2_demog[[class_hisp_exact[1]]],d5);
 #autoplot(survfit(Surv(a_dxage,a_cens_1)~pred_hisp,d5),col=c('red','blue')) + 
-autoplot(update(sf0,.~pred_hisp)) +
+autoplot(update(sf0,.~pred_hisp),xlim=c(0,1500),conf.int = F) +
   scale_fill_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic')) + 
   scale_color_discrete('Ethnicity',labels=c('Non Hispanic','Hispanic'));
 #' ## Survival plots for numeric predictors
